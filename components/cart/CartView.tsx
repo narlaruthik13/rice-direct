@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { cartTotals, farmerCount, getCartLines } from "@/lib/cart";
 import { formatINR } from "@/lib/format";
 import { useCartHydrated, useCartStore } from "@/store/cart";
-import { RiceBag } from "@/components/product/RiceBag";
+import { ProducePack } from "@/components/product/ProducePack";
+import { SalesModelBadge } from "@/components/product/SalesModelBadge";
 import { PriceBreakdown } from "@/components/product/PriceBreakdown";
 import { buttonClasses } from "@/components/ui/Button";
 
@@ -28,9 +29,9 @@ export function CartView() {
     return (
       <div className="mt-10 rounded-2xl border border-dashed border-husk/30 p-12 text-center">
         <p className="font-display text-2xl text-field">Your cart is empty</p>
-        <p className="mt-2 text-soil/70">Pick a bag from one of our farmers.</p>
+        <p className="mt-2 text-soil/70">Pick a pack from one of our farmers.</p>
         <Link href="/shop" className={buttonClasses("primary", "mt-6")}>
-          Shop rice
+          Shop now
         </Link>
       </div>
     );
@@ -57,14 +58,7 @@ export function CartView() {
                 aria-hidden="true"
                 tabIndex={-1}
               >
-                <RiceBag
-                  farmerName={farmer.name}
-                  variety={product.variety}
-                  weightKg={product.bagSizeKg}
-                  batchId={product.batchId}
-                  aged={product.age === "aged"}
-                  className="h-[88%] w-auto"
-                />
+                <ProducePack product={product} farmerName={farmer.name} className="h-[88%] w-auto" />
               </Link>
 
               <div className="flex min-w-0 flex-1 flex-col">
@@ -76,7 +70,10 @@ export function CartView() {
                     <p className="text-sm text-soil/70">
                       {product.bagSizeKg} kg · {farmer.name}, {farmer.village}
                     </p>
-                    <p className="mt-0.5 font-mono text-[11px] text-soil/50">{product.batchId}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <SalesModelBadge model={product.salesModel} categoryId={product.categoryId} />
+                      <span className="font-mono text-[11px] text-soil/50">{product.batchId}</span>
+                    </div>
                   </div>
                   <p className="font-semibold tabular-nums">{formatINR(product.price * quantity)}</p>
                 </div>
@@ -85,7 +82,7 @@ export function CartView() {
                   <div className="flex items-center rounded-full border border-husk/30 bg-white/80" role="group" aria-label={`Quantity of ${product.name}`}>
                     <button
                       type="button"
-                      className="h-9 w-9 rounded-full font-semibold text-field"
+                      className="h-10 w-10 rounded-full font-semibold text-field"
                       onClick={() => setQuantity(product.id, quantity - 1)}
                       aria-label={quantity === 1 ? `Remove ${product.name}` : "Decrease quantity"}
                     >
@@ -94,7 +91,7 @@ export function CartView() {
                     <span className="w-7 text-center text-sm font-semibold tabular-nums">{quantity}</span>
                     <button
                       type="button"
-                      className="h-9 w-9 rounded-full font-semibold text-field disabled:opacity-30"
+                      className="h-10 w-10 rounded-full font-semibold text-field disabled:opacity-30"
                       onClick={() => setQuantity(product.id, quantity + 1)}
                       disabled={quantity >= MAX_QTY}
                       aria-label="Increase quantity"
@@ -106,7 +103,7 @@ export function CartView() {
                   <button
                     type="button"
                     onClick={() => removeItem(product.id)}
-                    className="text-sm font-medium text-soil/60 underline-offset-4 hover:text-red-800 hover:underline"
+                    className="px-2 py-2.5 text-sm font-medium text-soil/60 underline-offset-4 hover:text-red-800 hover:underline"
                   >
                     Remove
                   </button>
@@ -120,12 +117,12 @@ export function CartView() {
       <aside className="h-fit rounded-2xl bg-white/70 p-6 shadow-card ring-1 ring-husk/10 lg:sticky lg:top-24">
         <h2 className="text-xl font-semibold text-field">Order summary</h2>
         <p className="mt-1 text-sm text-soil/70">
-          {totals.bags} {totals.bags === 1 ? "bag" : "bags"} from {farmers} {farmers === 1 ? "farmer" : "farmers"}
+          {totals.bags} {totals.bags === 1 ? "pack" : "packs"} from {farmers} {farmers === 1 ? "farmer" : "farmers"}
         </p>
 
         <div className="mt-5">
           <PriceBreakdown
-            breakdown={{ farmerShare: totals.farmerShare, millingFee: totals.millingFee, platformFee: totals.platformFee }}
+            breakdown={totals.split}
             price={totals.price}
           />
         </div>
@@ -136,13 +133,13 @@ export function CartView() {
         </div>
 
         <p className="mt-5 rounded-xl bg-field/10 p-3 text-sm text-field">
-          <span className="font-semibold">{formatINR(totals.farmerShare)}</span> of this order goes straight to the farmers.
+          <span className="font-semibold">{formatINR(totals.split.farmer)}</span> of this order reaches the farmers.
         </p>
 
         <Link href="/checkout" className={buttonClasses("primary", "mt-5 w-full py-3")}>
           Proceed to checkout
         </Link>
-        <Link href="/shop" className="mt-3 block text-center text-sm font-medium text-field hover:underline">
+        <Link href="/shop" className="mt-2 block py-2.5 text-center text-sm font-medium text-field hover:underline">
           Continue shopping
         </Link>
       </aside>

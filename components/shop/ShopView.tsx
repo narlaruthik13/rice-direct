@@ -3,10 +3,13 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { farmers, getFarmer, products, varieties } from "@/data/mock";
+import type { CategoryId } from "@/lib/types";
+import { farmers as allFarmers, farmersIn, getFarmer, products as allProducts, productsIn } from "@/data/mock";
+import { categories, PARTNER_TYPES } from "@/lib/categories";
 import {
   activeFilterCount,
   applyFilters,
+  EMPTY_FILTERS,
   parseFilters,
   priceBounds,
   toQuery,
@@ -17,18 +20,40 @@ import { ProductCard } from "@/components/product/ProductCard";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import { Button } from "@/components/ui/Button";
 
-const bounds = priceBounds(products);
-const EMPTY: Filters = { varieties: [], farms: [], age: "all", maxPrice: null, sort: "featured" };
+/** Everything the shop needs for one scope: a single category, or all of them. */
+function shopScope(categoryId?: CategoryId) {
+  if (categoryId) {
+    const category = categories[categoryId];
+    const products = productsIn(categoryId);
+    return {
+      products,
+      varieties: category.varieties,
+      farmers: farmersIn(categoryId),
+      partnerName: PARTNER_TYPES[category.partnerType].name,
+      attrDefs: category.filters,
+      bounds: priceBounds(products),
+    };
+  }
+  return {
+    products: allProducts,
+    varieties: Object.values(categories).flatMap((c) => c.varieties),
+    farmers: allFarmers.filter((f) => allProducts.some((p) => p.farmerId === f.id)),
+    partnerName: "Partner",
+    attrDefs: [],
+    bounds: priceBounds(allProducts),
+  };
+}
 
-export function ShopView() {
+export function ShopView({ categoryId }: { categoryId?: CategoryId }) {
+  const { products, varieties, farmers, partnerName, attrDefs, bounds } = useMemo(() => shopScope(categoryId), [categoryId]);
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const [panelOpen, setPanelOpen] = useState(false);
 
   // The URL is the single source of truth for filters.
-  const filters = useMemo(() => parseFilters(params), [params]);
-  const results = useMemo(() => applyFilters(products, filters), [filters]);
+  const filters = useMemo(() => parseFilters(params, attrDefs), [params, attrDefs]);
+  const results = useMemo(() => applyFilters(products, filters, attrDefs), [products, filters, attrDefs]);
   const activeCount = activeFilterCount(filters);
 
   const setFilters = (next: Filters) => {
@@ -36,7 +61,7 @@ export function ShopView() {
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
   };
   const update = (patch: Partial<Filters>) => setFilters({ ...filters, ...patch });
-  const clear = () => setFilters({ ...EMPTY, sort: filters.sort });
+  const clear = () => setFilters({ ...EMPTY_FILTERS, sort: filters.sort });
 
   const filterPanel = (
     <ShopFilters
@@ -46,6 +71,8 @@ export function ShopView() {
       varieties={varieties}
       farmers={farmers}
       bounds={bounds}
+      partnerName={partnerName}
+      attrDefs={attrDefs}
     />
   );
 
@@ -72,7 +99,7 @@ export function ShopView() {
           </button>
 
           <p className="text-sm text-soil/70" aria-live="polite">
-            {results.length} {results.length === 1 ? "bag" : "bags"} of rice
+            {results.length} {results.length === 1 ? "pack" : "packs"}
           </p>
 
           <label className="flex items-center gap-2 text-sm">

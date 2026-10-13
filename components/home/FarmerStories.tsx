@@ -1,14 +1,8 @@
 import Link from "next/link";
 import { Reveal } from "@/components/ui/Reveal";
-import { methodLabel } from "@/components/product/Partners";
+import { initials, methodLabel } from "@/lib/farmers";
+import { categories } from "@/lib/categories";
 import { farmers, products } from "@/data/mock";
-
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2);
 
 export function FarmerStories() {
   return (
@@ -16,15 +10,16 @@ export function FarmerStories() {
       <div className="mx-auto max-w-site px-4 sm:px-6">
         <Reveal className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-husk">Our farmers</p>
-          <h2 className="mt-3 text-3xl font-semibold text-field sm:text-4xl">The people behind every bag</h2>
-          <p className="mt-4 text-soil/75">Each bag carries the name of the farmer who grew it. Meet them.</p>
+          <h2 className="mt-3 text-3xl font-semibold text-field sm:text-4xl">The people behind every pack</h2>
+          <p className="mt-4 text-soil/75">Each pack carries the name of the farmer who grew it. Meet them.</p>
         </Reveal>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {farmers.map((farmer, i) => {
-            const theirRice = products.filter((p) => p.farmerId === farmer.id);
+            const theirProducts = products.filter((p) => p.farmerId === farmer.id);
+            if (!theirProducts.length) return null;
             return (
-              <Reveal key={farmer.id} delay={i * 0.1} className="flex">
+              <Reveal key={farmer.id} delay={(i % 3) * 0.1} className="flex">
                 <article className="flex w-full flex-col rounded-2xl bg-white/70 p-6 shadow-card ring-1 ring-husk/10">
                   <div className="flex items-center gap-4">
                     <span
@@ -59,14 +54,15 @@ export function FarmerStories() {
                   <p className="mt-5 text-sm leading-relaxed text-soil/80">{farmer.story}</p>
 
                   <div className="mt-auto pt-5">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-husk">Rice from this farm</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-husk">From this farm</p>
                     <ul className="mt-2 flex flex-wrap gap-2">
-                      {theirRice.map((p) => (
+                      {theirProducts.map((p) => (
                         <li key={p.id}>
                           <Link
                             href={`/product/${p.id}`}
-                            className="inline-block rounded-full border border-field/30 px-3 py-1 text-xs font-medium text-field transition-colors hover:bg-field hover:text-rice"
+                            className="inline-block rounded-full border border-field/30 px-3 py-1.5 text-xs font-medium text-field transition-colors hover:bg-field hover:text-rice"
                           >
+                            <span className="opacity-60">{categories[p.categoryId].name} · </span>
                             {p.name}
                           </Link>
                         </li>

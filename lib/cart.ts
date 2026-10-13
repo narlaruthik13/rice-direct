@@ -1,5 +1,6 @@
 import type { CartItem, Farmer, Product } from "@/lib/types";
 import { getFarmer, getProduct } from "@/data/mock";
+import { addSplit, EMPTY_SPLIT, toSplit } from "@/lib/pricing";
 
 export interface CartLine extends CartItem {
   product: Product;
@@ -15,17 +16,18 @@ export function getCartLines(items: CartItem[]): CartLine[] {
   });
 }
 
-/** Sums each part of the price breakdown across all lines. */
+/**
+ * Sums the cart into a model-neutral split (farmer / partner / platform), so a
+ * cart can mix FARMER_OWNED and PARTNER_SOURCED products and categories.
+ */
 export function cartTotals(lines: CartLine[]) {
   return lines.reduce(
     (acc, { product, quantity }) => ({
-      farmerShare: acc.farmerShare + product.priceBreakdown.farmerShare * quantity,
-      millingFee: acc.millingFee + product.priceBreakdown.millingFee * quantity,
-      platformFee: acc.platformFee + product.priceBreakdown.platformFee * quantity,
+      split: addSplit(acc.split, toSplit(product.priceBreakdown), quantity),
       price: acc.price + product.price * quantity,
       bags: acc.bags + quantity,
     }),
-    { farmerShare: 0, millingFee: 0, platformFee: 0, price: 0, bags: 0 },
+    { split: EMPTY_SPLIT, price: 0, bags: 0 },
   );
 }
 

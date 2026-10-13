@@ -5,9 +5,10 @@ const columns = [
   {
     title: "Shop",
     links: [
-      { href: "/shop", label: "All rice" },
-      { href: "/shop?age=aged", label: "Aged rice" },
-      { href: "/shop?age=new", label: "New crop" },
+      { href: "/shop", label: "Shop all" },
+      { href: "/shop/rice", label: "Rice" },
+      { href: "/shop/rice?age=aged", label: "Aged rice" },
+      { href: "/shop/onions", label: "Onions" },
     ],
   },
   {
@@ -15,7 +16,7 @@ const columns = [
     links: [
       { href: "/#how-it-works", label: "How it works" },
       { href: "/#farmers", label: "Our farmers" },
-      { href: "/trace/VD-2026-0412-SM", label: "Trace a bag" },
+      { href: "/trace/VD-2026-0412-SM", label: "Trace a pack" },
     ],
   },
 ];
@@ -30,7 +31,8 @@ export function Footer() {
             <span className="font-display text-xl font-semibold">Vari Direct</span>
           </Link>
           <p className="mt-4 text-sm leading-relaxed text-rice/70">
-            Rice from the farmer who grew it, milled by a trusted local mill, delivered to you. No middlemen. Every bag
+            Rice and onions from the farmers who grew them, processed by trusted local mills and
+            packhouses, delivered to you. No middlemen. Every pack
             traceable, every rupee shown.
           </p>
         </div>

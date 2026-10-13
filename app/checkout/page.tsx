@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function CheckoutPage() {
   return (
     <div className="mx-auto max-w-site px-4 py-12 sm:px-6">
-      <Link href="/cart" className="text-sm text-soil/60 hover:text-field">
+      <Link href="/cart" className="inline-block py-2 text-sm text-soil/60 hover:text-field">
         ← Back to cart
       </Link>
       <h1 className="mt-3 text-3xl font-semibold text-field sm:text-4xl">Checkout</h1>

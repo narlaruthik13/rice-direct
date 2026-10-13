@@ -4,12 +4,24 @@ import Link from "next/link";
 import { useState } from "react";
 import { useCartStore } from "@/store/cart";
 import { flyGrainsToCart } from "@/lib/flyToCart";
+import type { CategoryId } from "@/lib/types";
+import { categories } from "@/lib/categories";
 import { Button } from "@/components/ui/Button";
 
 const MAX_QTY = 10;
 
 /** Quantity stepper + Add to cart (product page). */
-export function AddToCart({ productId, name, inStock }: { productId: string; name: string; inStock: boolean }) {
+export function AddToCart({
+  productId,
+  name,
+  inStock,
+  categoryId,
+}: {
+  productId: string;
+  name: string;
+  inStock: boolean;
+  categoryId: CategoryId;
+}) {
   const addItem = useCartStore((s) => s.addItem);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -53,7 +65,7 @@ export function AddToCart({ productId, name, inStock }: { productId: string; nam
           className="h-11 flex-1 px-8 sm:flex-none"
           onClick={(e) => {
             addItem(productId, qty);
-            flyGrainsToCart(e.currentTarget, Math.min(10, 4 + qty * 2));
+            flyGrainsToCart(e.currentTarget, Math.min(10, 4 + qty * 2), categories[categoryId].particle);
             setAdded(true);
           }}
           aria-label={`Add ${qty} × ${name} to cart`}

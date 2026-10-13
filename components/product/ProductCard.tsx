@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { motion, type Variants } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import type { Farmer, Product } from "@/lib/types";
 import { formatINR } from "@/lib/format";
 import { flyGrainsToCart } from "@/lib/flyToCart";
 import { useCartStore } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
-import { RiceBag } from "@/components/product/RiceBag";
+import { ProducePack } from "@/components/product/ProducePack";
+import { SalesModelBadge } from "@/components/product/SalesModelBadge";
+import { categories, productBadge } from "@/lib/categories";
 import { PriceBreakdown } from "@/components/product/PriceBreakdown";
 
 // Card lifts and its shadow deepens on hover; the bag tilts as if picked up.
@@ -31,6 +33,8 @@ interface ProductCardProps {
 
 export function ProductCard({ product, farmer }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem);
+  // Reduced motion: no hover lift (markup is identical, so no hydration mismatch).
+  const reduce = useReducedMotion();
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
@@ -40,6 +44,8 @@ export function ProductCard({ product, farmer }: ProductCardProps) {
   }, [added]);
 
   const href = `/product/${product.id}`;
+  // Badge (rice: aged / new crop, onions: size grade) comes from the category config.
+  const badge = productBadge(product);
 
   return (
     <motion.article
@@ -47,27 +53,21 @@ export function ProductCard({ product, farmer }: ProductCardProps) {
       variants={cardVariants}
       initial="rest"
       animate="rest"
-      whileHover="hover"
+      whileHover={reduce ? undefined : "hover"}
       transition={spring}
     >
       <Link href={href} className="relative grid aspect-[16/10] place-items-center bg-rice-dim sm:aspect-[4/3]" tabIndex={-1} aria-hidden="true">
         <motion.div variants={bagVariants} transition={spring} className="h-[86%]">
-          <RiceBag
-            farmerName={farmer.name}
-            variety={product.variety}
-            weightKg={product.bagSizeKg}
-            batchId={product.batchId}
-            aged={product.age === "aged"}
-            className="h-full w-auto"
-          />
+          <ProducePack product={product} farmerName={farmer.name} className="h-full w-auto" />
         </motion.div>
         <span
           className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold ${
-            product.age === "aged" ? "bg-husk text-rice" : "bg-field text-rice"
+            badge.tone === "husk" ? "bg-husk text-rice" : "bg-field text-rice"
           }`}
         >
-          {product.age === "aged" ? "Aged" : "New crop"}
+          {badge.label}
         </span>
+        <SalesModelBadge model={product.salesModel} categoryId={product.categoryId} className="absolute right-3 top-3" />
       </Link>
 
       <div className="flex flex-1 flex-col p-5">
@@ -97,7 +97,7 @@ export function ProductCard({ product, farmer }: ProductCardProps) {
           <Button
             onClick={(e) => {
               addItem(product.id);
-              flyGrainsToCart(e.currentTarget);
+              flyGrainsToCart(e.currentTarget, 6, categories[product.categoryId].particle);
               setAdded(true);
             }}
             disabled={!product.inStock}

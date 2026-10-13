@@ -41,7 +41,7 @@ export function OrderSuccess() {
         <h1 className="text-3xl font-semibold text-field">No recent order found</h1>
         <p className="mt-3 text-soil/70">Orders placed in this browser tab show up here.</p>
         <Link href="/shop" className={buttonClasses("primary", "mt-6")}>
-          Shop rice
+          Shop now
         </Link>
       </div>
     );
@@ -55,7 +55,7 @@ export function OrderSuccess() {
         <SuccessMark />
         <h1 className="mt-4 text-3xl font-semibold text-field sm:text-4xl">Thank you, {a.name.split(" ")[0]}!</h1>
         <p className="mt-2 text-soil/75">
-          Order <span className="font-mono font-semibold">{order.id}</span> is placed. Your rice is coming straight from the
+          Order <span className="font-mono font-semibold">{order.id}</span> is placed. Your order is coming straight from the
           farm.
         </p>
         <p className="mt-3 rounded-full bg-paddy/15 px-4 py-1.5 text-xs font-medium text-husk-dark">
@@ -65,7 +65,7 @@ export function OrderSuccess() {
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         <section className="rounded-2xl bg-white/70 p-6 shadow-card ring-1 ring-husk/10">
-          <h2 className="text-xl font-semibold text-field">Your bags</h2>
+          <h2 className="text-xl font-semibold text-field">Your packs</h2>
           <ul className="mt-4 divide-y divide-husk/10">
             {order.items.map((item) => (
               <li key={item.productId} className="py-3 text-sm">

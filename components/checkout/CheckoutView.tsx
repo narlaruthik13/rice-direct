@@ -130,12 +130,7 @@ export function CheckoutView() {
           batchId: product.batchId,
           farmerName: farmer.name,
         })),
-        totals: {
-          farmerShare: totals.farmerShare,
-          millingFee: totals.millingFee,
-          platformFee: totals.platformFee,
-          price: totals.price,
-        },
+        totals: { ...totals.split, price: totals.price },
       });
       setStatus("done"); // keeps the "empty cart" view from flashing before navigation
       clearCart();
@@ -150,9 +145,9 @@ export function CheckoutView() {
     return (
       <div className="mt-10 rounded-2xl border border-dashed border-husk/30 p-12 text-center">
         <p className="font-display text-2xl text-field">Your cart is empty</p>
-        <p className="mt-2 text-soil/70">Add a bag of rice before checking out.</p>
+        <p className="mt-2 text-soil/70">Add a pack from one of our farmers before checking out.</p>
         <Link href="/shop" className={buttonClasses("primary", "mt-6")}>
-          Shop rice
+          Shop now
         </Link>
       </div>
     );
@@ -247,7 +242,7 @@ export function CheckoutView() {
 
         <div className="mt-4 border-t border-husk/15 pt-4">
           <PriceBreakdown
-            breakdown={{ farmerShare: totals.farmerShare, millingFee: totals.millingFee, platformFee: totals.platformFee }}
+            breakdown={totals.split}
             price={totals.price}
           />
         </div>
@@ -257,7 +252,7 @@ export function CheckoutView() {
         </div>
 
         <p className="mt-4 text-sm text-soil/70">
-          {formatINR(totals.farmerShare)} goes to {farmerCount(lines) === 1 ? "the farmer" : `${farmerCount(lines)} farmers`}.
+          {formatINR(totals.split.farmer)} goes to {farmerCount(lines) === 1 ? "the farmer" : `${farmerCount(lines)} farmers`}.
         </p>
 
         <Button type="submit" className="mt-5 w-full py-3 text-base" disabled={status === "paying"}>

@@ -1,24 +1,68 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { Farmer, RiceVariety } from "@/lib/types";
+import type { CategoryFilterDef, Farmer } from "@/lib/types";
 import { formatINR } from "@/lib/format";
-import { PRICE_STEP, type ShopFilters as Filters } from "@/lib/shop";
+import { PRICE_STEP, type ShopFilters as Filters, type SoldBy } from "@/lib/shop";
 
 interface ShopFiltersProps {
   filters: Filters;
   update: (patch: Partial<Filters>) => void;
   onClear: () => void;
-  varieties: RiceVariety[];
+  varieties: readonly string[];
   farmers: Farmer[];
   bounds: { min: number; max: number };
+  /** "Mill" / "Packhouse" (or "Partner" across categories), for the Sold by hint. */
+  partnerName: string;
+  /** Category-specific filters from lib/categories.ts (rice age, onion size, ...). */
+  attrDefs: CategoryFilterDef[];
 }
 
-const ageOptions = [
+const soldByOptions: { value: SoldBy; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "new", label: "New crop" },
-  { value: "aged", label: "Aged" },
-] as const;
+  { value: "farmer", label: "Farmer" },
+  { value: "partner", label: "Partner" },
+];
+
+/** A row of mutually exclusive pill buttons (radio group). */
+function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div
+      className="grid gap-1 rounded-full bg-rice-dim p-1"
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+      role="radiogroup"
+      aria-label={label}
+    >
+      {options.map((opt) => {
+        const active = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(opt.value)}
+            className={`rounded-full px-2 py-1.5 text-xs font-semibold transition-colors ${
+              active ? "bg-field text-rice shadow-sm" : "text-soil/70 hover:text-field"
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const toggle = (list: string[], value: string) =>
   list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
@@ -32,7 +76,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function ShopFilters({ filters, update, onClear, varieties, farmers, bounds }: ShopFiltersProps) {
+export function ShopFilters({ filters, update, onClear, varieties, farmers, bounds, partnerName, attrDefs }: ShopFiltersProps) {
   const priceValue = filters.maxPrice ?? bounds.max;
 
   return (
@@ -44,27 +88,32 @@ export function ShopFilters({ filters, update, onClear, varieties, farmers, boun
         </button>
       </div>
 
-      <Group title="Rice age">
-        <div className="grid grid-cols-3 gap-1 rounded-full bg-rice-dim p-1" role="radiogroup" aria-label="Rice age">
-          {ageOptions.map((opt) => {
-            const active = filters.age === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => update({ age: opt.value })}
-                className={`rounded-full px-2 py-1.5 text-xs font-semibold transition-colors ${
-                  active ? "bg-field text-rice shadow-sm" : "text-soil/70 hover:text-field"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
+      <Group title="Sold by">
+        <Segmented label="Sold by" options={soldByOptions} value={filters.soldBy} onChange={(soldBy) => update({ soldBy })} />
+        <p className="mt-2 text-xs leading-relaxed text-soil/70">
+          {filters.soldBy === "partner"
+            ? `${partnerName}-Direct: the ${partnerName.toLowerCase()} bought the harvest from the farmer at a published price.`
+            : filters.soldBy === "farmer"
+              ? `Farmer-Owned: the farmer owns the harvest and pays the ${partnerName.toLowerCase()} a fee.`
+              : `Farmer-Owned or ${partnerName}-Direct. Every pack names its farmer.`}
+        </p>
       </Group>
+
+      {attrDefs.map((def) => (
+        <Group key={def.param} title={def.label}>
+          <Segmented
+            label={def.label}
+            options={[{ value: "all", label: "All" }, ...def.options]}
+            value={filters.attrs[def.param] ?? "all"}
+            onChange={(value) => {
+              const attrs = { ...filters.attrs };
+              if (value === "all") delete attrs[def.param];
+              else attrs[def.param] = value;
+              update({ attrs });
+            }}
+          />
+        </Group>
+      ))}
 
       <Group title="Variety">
         <ul className="space-y-2">
@@ -107,7 +156,7 @@ export function ShopFilters({ filters, update, onClear, varieties, farmers, boun
         </ul>
       </Group>
 
-      <Group title="Price per bag">
+      <Group title="Price per pack">
         <label htmlFor="max-price" className="mb-2 flex justify-between text-sm">
           <span>Up to</span>
           <span className="font-semibold">{filters.maxPrice === null ? "Any price" : formatINR(priceValue)}</span>

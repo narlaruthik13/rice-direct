@@ -1,11 +1,18 @@
-// "Add to cart" flourish: a few rice and paddy grains arc from the clicked
+// "Add to cart" flourish: a few produce particles (rice grains, onion bulbs) arc from the clicked
 // button into the navbar cart icon ([data-cart-icon]), which then bumps.
 // Pure DOM + Web Animations API, so no React state or re-renders are involved.
 // Skipped entirely when the user prefers reduced motion.
 
-const GRAIN_COLORS = ["#EBCB6E", "#FBF7EE", "#D4A62A", "#FBF7EE", "#EBCB6E", "#FBF7EE"];
+const DEFAULT_PARTICLE = { shape: "grain" as const, colors: ["#EBCB6E", "#FBF7EE", "#D4A62A", "#FBF7EE"] };
 
-export function flyGrainsToCart(source: HTMLElement, count = 6) {
+/** `particle` comes from the category config: rice grains, onion bulbs, ... */
+export function flyGrainsToCart(
+  source: HTMLElement,
+  count = 6,
+  particle: { shape: "grain" | "bulb"; colors: string[] } = DEFAULT_PARTICLE,
+) {
+  const bulb = particle.shape === "bulb";
+  const [w, h] = bulb ? [10, 10] : [10, 5];
   if (typeof window === "undefined") return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const target = document.querySelector<HTMLElement>("[data-cart-icon]");
@@ -23,12 +30,12 @@ export function flyGrainsToCart(source: HTMLElement, count = 6) {
     grain.setAttribute("aria-hidden", "true");
     Object.assign(grain.style, {
       position: "fixed",
-      left: `${sx - 5}px`,
-      top: `${sy - 2.5}px`,
-      width: "10px",
-      height: "5px",
-      borderRadius: "9999px",
-      background: GRAIN_COLORS[i % GRAIN_COLORS.length],
+      left: `${sx - w / 2}px`,
+      top: `${sy - h / 2}px`,
+      width: `${w}px`,
+      height: `${h}px`,
+      borderRadius: bulb ? "50% 50% 46% 46% / 58% 58% 42% 42%" : "9999px",
+      background: particle.colors[i % particle.colors.length],
       boxShadow: "0 0 0 1px rgba(166,126,18,0.4)",
       pointerEvents: "none",
       zIndex: "100",

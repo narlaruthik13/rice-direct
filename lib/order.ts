@@ -2,7 +2,7 @@
 // success page can show it; Phase 2/3 replaces this with a server-created order
 // (and Razorpay order + signature verification on the server).
 
-import type { PriceBreakdown } from "@/lib/types";
+import type { PriceSplit } from "@/lib/pricing";
 
 export interface Address {
   name: string;
@@ -29,7 +29,7 @@ export interface OrderSnapshot {
     batchId: string;
     farmerName: string;
   }[];
-  totals: PriceBreakdown & { price: number };
+  totals: PriceSplit & { price: number };
 }
 
 const KEY = "vari-direct-last-order";
@@ -49,7 +49,9 @@ export function saveOrder(order: OrderSnapshot) {
 export function loadOrder(): OrderSnapshot | null {
   try {
     const raw = sessionStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as OrderSnapshot) : null;
+    const order = raw ? (JSON.parse(raw) as OrderSnapshot) : null;
+    // Ignore snapshots saved before Phase 1.5 (old totals shape).
+    return order && typeof order.totals?.farmer === "number" ? order : null;
   } catch {
     return null;
   }

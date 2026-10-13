@@ -3,41 +3,36 @@
 import Link from "next/link";
 import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useSpring } from "framer-motion";
+import type { JourneyKey, JourneyStage } from "@/lib/journey";
+import { formatDate } from "@/lib/format";
 
-export type StageKey = "farm" | "harvest" | "mill" | "quality" | "pack" | "you";
+// Stages come from lib/journey.ts (category steps + sales model), so this
+// component never hardcodes rice or onions.
 
-export interface TraceStage {
-  key: StageKey;
-  title: string;
-  date?: string; // formatted
-  dateTime?: string; // ISO for <time>
-  gap?: string; // e.g. "143 days after harvest"
-  body: string;
-  facts: { label: string; value: string }[];
-  link?: { href: string; label: string };
-}
-
-const icons: Record<StageKey, JSX.Element> = {
+const icons: Record<JourneyKey, JSX.Element> = {
   farm: <path d="M12 21v-8m0 0c0-4 3-6 7-6 0 4-3 6-7 6Zm0 0C12 9 9 7 5 7c0 4 3 6 7 6ZM4 21h16" />,
   harvest: <path d="M5 19 19 5M8 5c4 0 8 2 11 6M5 8c0 4 2 8 6 11" />,
-  mill: (
+  purchase: <path d="M4 7h16v10H4V7Zm4 5h.01M16 12h.01M12 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />,
+  milling: (
     <>
       <circle cx="8" cy="13" r="4" />
       <circle cx="16" cy="13" r="4" />
       <path d="M9 3h6l-2 4h-2L9 3Z" />
     </>
   ),
+  curing: <path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17M17 7l1.4-1.4M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />,
+  grading: <path d="M4 6h16M6 12h12M9 18h6" />,
   quality: <path d="M9 12l2 2 4-4M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3Z" />,
-  pack: <path d="M7 7c0-2 2-3 5-3s5 1 5 3l1 13H6L7 7Zm2 0h6" />,
+  packing: <path d="M7 7c0-2 2-3 5-3s5 1 5 3l1 13H6L7 7Zm2 0h6" />,
   you: <path d="M3 11l9-7 9 7v9H3v-9Zm6 9v-6h6v6" />,
 };
 
 /**
- * The bag's journey as a vertical timeline. A gold line draws down as you
+ * A pack's journey as a vertical timeline. A gold line draws down as you
  * scroll; each stage's dot pops and its card rises in when it enters view (vertical, so hidden cards never cause sideways scroll).
  * Reduced motion: line fully drawn, everything static.
  */
-export function TraceTimeline({ stages }: { stages: TraceStage[] }) {
+export function TraceTimeline({ stages }: { stages: JourneyStage[] }) {
   const listRef = useRef<HTMLOListElement>(null);
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: listRef, offset: ["start 75%", "end 60%"] });
@@ -79,8 +74,8 @@ export function TraceTimeline({ stages }: { stages: TraceStage[] }) {
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h2 className="text-xl font-semibold text-field sm:text-2xl">{stage.title}</h2>
               {stage.date && (
-                <time dateTime={stage.dateTime} className="text-sm text-soil/60">
-                  {stage.date}
+                <time dateTime={stage.date} className="text-sm text-soil/60">
+                  {formatDate(stage.date)}
                 </time>
               )}
               {stage.gap && (
@@ -103,7 +98,7 @@ export function TraceTimeline({ stages }: { stages: TraceStage[] }) {
             {stage.link && (
               <Link
                 href={stage.link.href}
-                className="mt-4 inline-block text-sm font-semibold text-field underline decoration-paddy underline-offset-4"
+                className="mt-2 inline-block py-2 text-sm font-semibold text-field underline decoration-paddy underline-offset-4"
               >
                 {stage.link.label} →
               </Link>

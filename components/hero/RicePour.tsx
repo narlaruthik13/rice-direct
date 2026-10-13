@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import gsap from "gsap";
-import type { Farmer, Product } from "@/lib/types";
+import type { Farmer, RiceProduct } from "@/lib/types";
 import { RiceBagShape } from "@/components/product/RiceBag";
 
 // Scene 5: white rice pours from the mill's spout into a jute bag printed with
@@ -17,7 +17,7 @@ const STREAMS = [
   { d: "M124,34 Q127,140 123,262", dash: "8 11", offset: 4 },
 ];
 
-export function RicePour({ product, farmer, className = "" }: { product: Product; farmer: Farmer; className?: string }) {
+export function RicePour({ product, farmer, className = "" }: { product: RiceProduct; farmer: Farmer; className?: string }) {
   return (
     <svg
       className={`rp-root ${className}`}

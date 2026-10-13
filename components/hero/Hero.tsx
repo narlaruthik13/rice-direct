@@ -14,7 +14,7 @@ import {
 import { MillingScene, millingSceneTimeline } from "@/components/hero/MillingScene";
 import { RicePour, ricePourTimeline } from "@/components/hero/RicePour";
 import { buttonClasses } from "@/components/ui/Button";
-import { getBatch, getFarmer, getMill, products } from "@/data/mock";
+import { getFarmer, getPartner, getRiceBatch, riceProducts } from "@/data/mock";
 import { formatDate } from "@/lib/format";
 
 // Master timeline positions (timeline units, not seconds; scroll maps onto them).
@@ -24,11 +24,11 @@ const MILL_DURATION = 1.4;
 const POUR_AT = 5.3;
 const POUR_DURATION = 1.4;
 
-// The bag in the final scene belongs to the first featured product's farmer.
-const heroProduct = products.find((p) => p.featured) ?? products[0];
+// The bag in the final scene: the first featured farmer-owned rice, packed in the farmer's name.
+const heroProduct = riceProducts.find((p) => p.featured && p.salesModel === "FARMER_OWNED") ?? riceProducts[0];
 const heroFarmer = getFarmer(heroProduct.farmerId)!;
-const heroMill = getMill(heroProduct.millId)!;
-const heroBatch = getBatch(heroProduct.batchId)!;
+const heroMill = getPartner(heroProduct.partnerId)!;
+const heroBatch = getRiceBatch(heroProduct.batchId)!;
 
 // useLayoutEffect sets the animation's start state before paint; fall back on the server.
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;

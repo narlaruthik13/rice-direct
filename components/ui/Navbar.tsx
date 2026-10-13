@@ -6,11 +6,14 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { selectCartCount, useCartStore } from "@/store/cart";
 import { GrainMark } from "@/components/ui/GrainMark";
+import { categoryList } from "@/lib/categories";
 
+// Category links come from lib/categories.ts, so a new crop appears here automatically.
 const links = [
-  { href: "/shop", label: "Shop" },
-  { href: "/#how-it-works", label: "How it works" },
-  { href: "/#farmers", label: "Our farmers" },
+  { href: "/shop", label: "Shop all", exact: true },
+  ...categoryList.map((c) => ({ href: `/shop/${c.slug}`, label: c.name, exact: false })),
+  { href: "/#how-it-works", label: "How it works", exact: false },
+  { href: "/#farmers", label: "Our farmers", exact: false },
 ];
 
 function CartIcon() {
@@ -38,23 +41,24 @@ export function Navbar() {
     setMenuOpen(false);
   }, [pathname]);
 
-  const isActive = (href: string) => !href.includes("#") && pathname.startsWith(href);
+  const isActive = (href: string, exact: boolean) =>
+    !href.includes("#") && (exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));
 
   return (
     <header className="sticky top-0 z-50 border-b border-husk/15 bg-rice/85 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-site items-center justify-between px-4 sm:px-6" aria-label="Main">
-        <Link href="/" className="flex items-center gap-2 text-field">
+        <Link href="/" className="flex items-center gap-2 py-2 text-field">
           <GrainMark />
           <span className="font-display text-xl font-semibold tracking-tight">Vari Direct</span>
         </Link>
 
-        <ul className="hidden items-center gap-8 md:flex">
+        <ul className="hidden items-center gap-7 lg:flex">
           {links.map((link) => (
             <li key={link.href}>
               <Link
                 href={link.href}
                 className={`text-sm font-medium transition-colors hover:text-field ${
-                  isActive(link.href) ? "text-field underline decoration-paddy decoration-2 underline-offset-8" : "text-soil/75"
+                  isActive(link.href, link.exact) ? "text-field underline decoration-paddy decoration-2 underline-offset-8" : "text-soil/75"
                 }`}
               >
                 {link.label}
@@ -72,7 +76,7 @@ export function Navbar() {
           <Link
             href="/cart"
             data-cart-icon
-            className="relative rounded-full p-2 text-field transition-colors hover:bg-rice-dim"
+            className="relative rounded-full p-2.5 text-field transition-colors hover:bg-rice-dim"
             aria-label={`Cart, ${count} item${count === 1 ? "" : "s"}`}
           >
             <CartIcon />
@@ -94,7 +98,7 @@ export function Navbar() {
 
           <button
             type="button"
-            className="rounded-full p-2 text-field hover:bg-rice-dim md:hidden"
+            className="rounded-full p-2.5 text-field hover:bg-rice-dim lg:hidden"
             aria-expanded={menuOpen}
             aria-controls="mobile-menu"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -119,10 +123,10 @@ export function Navbar() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-husk/15 md:hidden"
+            className="overflow-hidden border-t border-husk/15 lg:hidden"
           >
             <ul className="space-y-1 px-4 py-3">
-              {[...links, { href: "/login", label: "Login" }].map((link) => (
+              {[...links, { href: "/login", label: "Login", exact: true }].map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
