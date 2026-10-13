@@ -1,0 +1,151 @@
+"use client";
+
+import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
+import { cartTotals, farmerCount, getCartLines } from "@/lib/cart";
+import { formatINR } from "@/lib/format";
+import { useCartHydrated, useCartStore } from "@/store/cart";
+import { RiceBag } from "@/components/product/RiceBag";
+import { PriceBreakdown } from "@/components/product/PriceBreakdown";
+import { buttonClasses } from "@/components/ui/Button";
+
+const MAX_QTY = 10;
+
+export function CartView() {
+  const hydrated = useCartHydrated();
+  const items = useCartStore((s) => s.items);
+  const setQuantity = useCartStore((s) => s.setQuantity);
+  const removeItem = useCartStore((s) => s.removeItem);
+
+  const lines = getCartLines(items);
+
+  // Avoid flashing "empty" before the saved cart loads from localStorage.
+  if (!hydrated) {
+    return <p className="mt-10 text-sm text-soil/60">Loading your cart…</p>;
+  }
+
+  if (lines.length === 0) {
+    return (
+      <div className="mt-10 rounded-2xl border border-dashed border-husk/30 p-12 text-center">
+        <p className="font-display text-2xl text-field">Your cart is empty</p>
+        <p className="mt-2 text-soil/70">Pick a bag from one of our farmers.</p>
+        <Link href="/shop" className={buttonClasses("primary", "mt-6")}>
+          Shop rice
+        </Link>
+      </div>
+    );
+  }
+
+  const totals = cartTotals(lines);
+  const farmers = farmerCount(lines);
+
+  return (
+    <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
+      <ul className="space-y-4">
+        <AnimatePresence initial={false}>
+          {lines.map(({ product, farmer, quantity }) => (
+            <motion.li
+              key={product.id}
+              layout
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.2 }}
+              className="flex gap-4 rounded-2xl bg-white/70 p-4 shadow-card ring-1 ring-husk/10 sm:gap-6 sm:p-5"
+            >
+              <Link
+                href={`/product/${product.id}`}
+                className="grid h-24 w-20 shrink-0 place-items-center rounded-xl bg-rice-dim sm:h-28 sm:w-24"
+                aria-hidden="true"
+                tabIndex={-1}
+              >
+                <RiceBag
+                  farmerName={farmer.name}
+                  variety={product.variety}
+                  weightKg={product.bagSizeKg}
+                  batchId={product.batchId}
+                  aged={product.age === "aged"}
+                  className="h-[88%] w-auto"
+                />
+              </Link>
+
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link href={`/product/${product.id}`} className="font-display text-lg font-semibold text-field hover:underline">
+                      {product.name}
+                    </Link>
+                    <p className="text-sm text-soil/70">
+                      {product.bagSizeKg} kg · {farmer.name}, {farmer.village}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[11px] text-soil/50">{product.batchId}</p>
+                  </div>
+                  <p className="font-semibold tabular-nums">{formatINR(product.price * quantity)}</p>
+                </div>
+
+                <div className="mt-auto flex items-center justify-between gap-3 pt-3">
+                  <div className="flex items-center rounded-full border border-husk/30 bg-white/80" role="group" aria-label={`Quantity of ${product.name}`}>
+                    <button
+                      type="button"
+                      className="h-9 w-9 rounded-full font-semibold text-field"
+                      onClick={() => setQuantity(product.id, quantity - 1)}
+                      aria-label={quantity === 1 ? `Remove ${product.name}` : "Decrease quantity"}
+                    >
+                      −
+                    </button>
+                    <span className="w-7 text-center text-sm font-semibold tabular-nums">{quantity}</span>
+                    <button
+                      type="button"
+                      className="h-9 w-9 rounded-full font-semibold text-field disabled:opacity-30"
+                      onClick={() => setQuantity(product.id, quantity + 1)}
+                      disabled={quantity >= MAX_QTY}
+                      aria-label="Increase quantity"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="hidden text-xs text-soil/60 sm:inline">{formatINR(product.price)} each</span>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(product.id)}
+                    className="text-sm font-medium text-soil/60 underline-offset-4 hover:text-red-800 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </motion.li>
+          ))}
+        </AnimatePresence>
+      </ul>
+
+      <aside className="h-fit rounded-2xl bg-white/70 p-6 shadow-card ring-1 ring-husk/10 lg:sticky lg:top-24">
+        <h2 className="text-xl font-semibold text-field">Order summary</h2>
+        <p className="mt-1 text-sm text-soil/70">
+          {totals.bags} {totals.bags === 1 ? "bag" : "bags"} from {farmers} {farmers === 1 ? "farmer" : "farmers"}
+        </p>
+
+        <div className="mt-5">
+          <PriceBreakdown
+            breakdown={{ farmerShare: totals.farmerShare, millingFee: totals.millingFee, platformFee: totals.platformFee }}
+            price={totals.price}
+          />
+        </div>
+
+        <div className="mt-3 flex justify-between text-sm text-soil/70">
+          <span>Delivery</span>
+          <span>Calculated at checkout</span>
+        </div>
+
+        <p className="mt-5 rounded-xl bg-field/10 p-3 text-sm text-field">
+          <span className="font-semibold">{formatINR(totals.farmerShare)}</span> of this order goes straight to the farmers.
+        </p>
+
+        <Link href="/checkout" className={buttonClasses("primary", "mt-5 w-full py-3")}>
+          Proceed to checkout
+        </Link>
+        <Link href="/shop" className="mt-3 block text-center text-sm font-medium text-field hover:underline">
+          Continue shopping
+        </Link>
+      </aside>
+    </div>
+  );
+}

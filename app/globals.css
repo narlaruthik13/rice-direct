@@ -2,22 +2,148 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@layer base {
+  body {
+    @apply bg-rice font-sans text-soil antialiased;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-paddy-dark;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ---------- Hero: PaddyField ----------
+   GSAP scrubs these variables on .pf-root. Defaults = start of the story
+   (seedlings, green). Per-stalk --d (start delay) and --bend come inline. */
+.pf-root {
+  --pf-grow: 0;
+  --pf-bend: 0;
+  --pf-leaf: #5e8c3a;
+  --pf-stem: #4f7a30;
+  --pf-grain: #8fb356;
+  --pf-sky-top: #cfe2e3;
+  --pf-sky-bottom: #f3efdd;
+  --pf-sun: #f7e3a1;
+}
+.pf-sky-top { stop-color: var(--pf-sky-top); }
+.pf-sky-bottom { stop-color: var(--pf-sky-bottom); }
+.pf-leaf { fill: var(--pf-leaf); }
+.pf-stem,
+.pf-rachis { stroke: var(--pf-stem); }
+.pf-grain { fill: var(--pf-grain); }
+.pf-sun {
+  fill: var(--pf-sun);
+  transform: translateY(calc((1 - var(--pf-bend)) * 140px));
+}
+.pf-sway,
+.pf-grow,
+.pf-head { transform-origin: 0 0; }
+/* Each stalk grows over half of --pf-grow, starting at its own --d. Starts as a 12% seedling. */
+.pf-grow {
+  transform: scaleY(clamp(0.12, calc((var(--pf-grow) - var(--d)) / 0.5), 1));
+}
+/* Head appears near the end of growth, then droops by --bend degrees as it ripens. */
+.pf-head {
+  transform: rotate(calc(var(--pf-bend) * var(--bend) * 1deg))
+    scale(clamp(0, calc((var(--pf-grow) - var(--d) - 0.35) / 0.15), 1));
+}
+.pf-sway {
+  animation: pf-sway var(--sway-dur, 4s) ease-in-out var(--sway-delay, 0s) infinite alternate;
+}
+@keyframes pf-sway {
+  from { transform: rotate(-2.5deg); }
+  to { transform: rotate(2.5deg); }
+}
+
+/* Static fallback: fully grown, ripe field, no wind. */
+@media (prefers-reduced-motion: reduce) {
+  .pf-root {
+    --pf-grow: 1 !important;
+    --pf-bend: 1 !important;
+    --pf-leaf: #b39a3c !important;
+    --pf-stem: #c8a445 !important;
+    --pf-grain: #d4a62a !important;
+    --pf-sky-top: #f2d49b !important;
+    --pf-sky-bottom: #f8ebcb !important;
+    --pf-sun: #f5b942 !important;
+  }
+  .pf-sway { animation: none; }
+}
+
+/* ---------- Hero: MillingScene ----------
+   GSAP scrubs --ms-mill (0→1). Per grain: --m1 = travel from the rollers to its
+   slot, --l = husk cracking off. Both stagger by the grain's --i. */
+.ms-root { --ms-mill: 0; }
+.ms-roller-a,
+.ms-roller-b {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.ms-roller-a { transform: rotate(calc(var(--ms-mill) * 900deg)); }
+.ms-roller-b { transform: rotate(calc(var(--ms-mill) * -900deg)); }
+.ms-grain {
+  --m1: clamp(0, calc((var(--ms-mill) - var(--i) * 0.1) / 0.25), 1);
+  --l: clamp(0, calc((var(--ms-mill) - var(--i) * 0.1 - 0.25) / 0.3), 1);
+  transform-origin: 0 0;
+  transform: translate(calc((1 - var(--m1)) * var(--dx) * 1px), calc((1 - var(--m1)) * -125px))
+    scale(calc(0.5 + var(--m1) * 0.5));
+  opacity: clamp(0, calc(var(--m1) * 5), 1);
+}
+.ms-rice,
+.ms-husk-top,
+.ms-husk-bottom { transform-origin: 0 0; }
+.ms-rice { transform: scale(calc(0.92 + var(--l) * 0.08)); }
+.ms-husk-top {
+  transform: translate(calc(var(--l) * -8px), calc(var(--l) * -46px)) rotate(calc(var(--l) * -32deg));
+  opacity: calc(1 - var(--l));
+}
+.ms-husk-bottom {
+  transform: translate(calc(var(--l) * 10px), calc(var(--l) * 50px)) rotate(calc(var(--l) * 26deg));
+  opacity: calc(1 - var(--l));
+}
+
+/* Static fallback: a frozen moment showing white rice, husks cracking and paddy leaving the rollers. */
+@media (prefers-reduced-motion: reduce) {
+  .ms-root { --ms-mill: 0.62 !important; }
+}
+
+/* ---------- Hero: RicePour ----------
+   GSAP scrubs --rp-pour (0→1). Stream drops in over the first 10%, flows, and
+   stops near the end; the sack fills out from flat to full. */
+.rp-root {
+  --rp-pour: 0;
+  --rp-fill: clamp(0, calc((var(--rp-pour) - 0.1) / 0.75), 1);
+}
+.rp-stream {
+  transform-origin: 120px 34px;
+  transform: scaleY(clamp(0, calc(var(--rp-pour) / 0.1), 1));
+  opacity: clamp(0, calc((0.95 - var(--rp-pour)) / 0.1), 1);
+}
+.rp-flow { stroke-dashoffset: calc(var(--rp-pour) * -900px + var(--o) * 1px); }
+.rp-root .rb-sack {
+  transform-origin: 120px 290px;
+  transform: scale(calc(1.06 - var(--rp-fill) * 0.06), calc(0.8 + var(--rp-fill) * 0.2));
+}
+.rp-root .rb-mound {
+  transform-origin: 120px 46px;
+  transform: scaleY(clamp(0, calc((var(--rp-fill) - 0.55) / 0.45), 1));
+}
+
+/* Static fallback: a full bag, no stream. */
+@media (prefers-reduced-motion: reduce) {
+  .rp-root { --rp-pour: 1 !important; }
 }
 
 @layer utilities {

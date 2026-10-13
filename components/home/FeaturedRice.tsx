@@ -1,0 +1,36 @@
+import Link from "next/link";
+import { Reveal } from "@/components/ui/Reveal";
+import { ProductCard } from "@/components/product/ProductCard";
+import { getFarmer, products } from "@/data/mock";
+
+export function FeaturedRice() {
+  const featured = products.filter((p) => p.featured);
+
+  return (
+    <section id="featured" className="scroll-mt-20 bg-rice-dim/60 py-20 sm:py-28">
+      <div className="mx-auto max-w-site px-4 sm:px-6">
+        <Reveal className="flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-husk">Featured rice</p>
+            <h2 className="mt-3 text-3xl font-semibold text-field sm:text-4xl">Fresh from this season&apos;s batches</h2>
+          </div>
+          <Link href="/shop" className="text-sm font-semibold text-field underline decoration-paddy decoration-2 underline-offset-4">
+            View all rice →
+          </Link>
+        </Reveal>
+
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {featured.map((product, i) => {
+            const farmer = getFarmer(product.farmerId);
+            if (!farmer) return null;
+            return (
+              <Reveal key={product.id} delay={i * 0.08} className="flex">
+                <ProductCard product={product} farmer={farmer} />
+              </Reveal>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
