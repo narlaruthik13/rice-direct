@@ -1,7 +1,10 @@
-# Rice Direct (working name: "Vari Direct")
+# Kisa
+
+**Brand line:** Kisa — farmer-owned food
+**Tagline (hero / footer):** Straight from the farmer. Traceable to the field.
 
 ## Concept
-A direct rice marketplace: Farmer → Rice Mill → Customer, with no middlemen.
+A direct food marketplace (rice and onions to start): Farmer → processing partner (rice mill / onion packhouse) → Customer, with no middlemen.
 
 **Business model**
 - The platform supports TWO sales models per product:

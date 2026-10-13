@@ -65,9 +65,9 @@ export default function TracePage({ params }: Props) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-paddy-light">
-              {category.name} · {category.pack.noun} trace
+              Kisa trace · {category.name}
             </p>
-            <span className="rounded-full bg-rice/15 px-2.5 py-0.5 text-xs font-semibold text-rice">✓ Verified batch</span>
+            <span className="rounded-full bg-rice/15 px-2.5 py-0.5 text-xs font-semibold text-rice">✓ Verified by Kisa</span>
             <SalesModelBadge model={batch.salesModel} categoryId={batch.categoryId} />
           </div>
           <h1 className="mt-3 text-3xl font-semibold sm:text-4xl">{product?.name ?? `${batch.variety} ${category.nouns.product}`}</h1>

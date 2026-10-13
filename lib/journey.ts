@@ -212,8 +212,8 @@ export function buildJourney({ batch, farmer, partner, product, full = false }: 
       body: !product || !b
         ? `This ${category.pack.noun} travelled from ${farmer.village} to you with no middlemen.`
         : farmerOwned
-          ? `Of the ${formatINR(product.price)} you paid, ${formatINR(farmerAmount(b))} went to ${farmer.name}, ${formatINR(partnerAmount(b))} to the ${partnerWords.noun} for its work, and ${formatINR(b.platformFee)} to Vari Direct.`
-          : `Of the ${formatINR(product.price)} you paid, ${formatINR(farmerAmount(b))} was paid to ${farmer.name} for the ${raw}, ${formatINR(partnerAmount(b))} is the ${partnerWords.noun}'s margin, and ${formatINR(b.platformFee)} went to Vari Direct.`,
+          ? `Of the ${formatINR(product.price)} you paid, ${formatINR(farmerAmount(b))} went to ${farmer.name}, ${formatINR(partnerAmount(b))} to the ${partnerWords.noun} for its work, and ${formatINR(b.platformFee)} to Kisa.`
+          : `Of the ${formatINR(product.price)} you paid, ${formatINR(farmerAmount(b))} was paid to ${farmer.name} for the ${raw}, ${formatINR(partnerAmount(b))} is the ${partnerWords.noun}'s margin, and ${formatINR(b.platformFee)} went to Kisa.`,
       facts: [],
     });
   }

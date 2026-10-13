@@ -1,4 +1,4 @@
-// Domain types for Vari Direct.
+// Domain types for Kisa.
 // Two sales models per product (see CLAUDE.md):
 //   FARMER_OWNED (Model B, toll processing): the farmer owns the produce and pays
 //     the partner a processing fee.

@@ -55,8 +55,8 @@ export function OrderSuccess() {
         <SuccessMark />
         <h1 className="mt-4 text-3xl font-semibold text-field sm:text-4xl">Thank you, {a.name.split(" ")[0]}!</h1>
         <p className="mt-2 text-soil/75">
-          Order <span className="font-mono font-semibold">{order.id}</span> is placed. Your order is coming straight from the
-          farm.
+          Your Kisa order <span className="font-mono font-semibold">{order.id}</span> is placed. It&apos;s coming straight from
+          the farmer, and every pack is traceable to the field.
         </p>
         <p className="mt-3 rounded-full bg-paddy/15 px-4 py-1.5 text-xs font-medium text-husk-dark">
           Demo order: no payment was taken ({order.paymentMethod} selected).

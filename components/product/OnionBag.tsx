@@ -73,7 +73,7 @@ export function OnionBagShape({ farmerName, variety, weightKg, batchId, bulbColo
       <rect x="70" y="112" width="100" height="126" rx="6" fill="#FBF6EA" stroke={accent} strokeWidth="2" />
       <circle cx="120" cy="122" r="3" fill="#FFFFFF" stroke={accent} strokeWidth="1.2" />
       <text x="120" y="139" textAnchor="middle" fontSize="7.5" letterSpacing="2" fontWeight="700" fill={accent}>
-        VARI DIRECT
+        KISA
       </text>
       <line x1="84" x2="156" y1="145" y2="145" stroke={accent} strokeOpacity="0.3" />
       {nameLines.map((line, i) => (

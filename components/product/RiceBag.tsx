@@ -57,7 +57,7 @@ export function RiceBagShape({ farmerName, variety, weightKg, batchId, aged = fa
         {/* Label */}
         <rect x="64" y="104" width="112" height="132" rx="6" fill="#FBF6EA" stroke={accent} strokeWidth="2" />
         <text x="120" y="122" textAnchor="middle" fontSize="8" letterSpacing="2" fontWeight="700" fill={accent}>
-          VARI DIRECT
+          KISA
         </text>
         <line x1="80" x2="160" y1="130" y2="130" stroke={accent} strokeOpacity="0.3" />
         {nameLines.map((line, i) => (

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Kisa mark (same paths as components/ui/Logo.tsx MARK_PATHS), on a field-green tile -->
+  <rect width="32" height="32" rx="7" fill="#2F4A2A"/>
+  <path d="M16,23 C16,20 16,18 16,15.5" stroke="#FAF6EC" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M15.5,18 C9.5,17.5 5.5,12.5 5,6 C11.5,6.5 15.5,11 15.5,18 Z" fill="#FAF6EC"/>
+  <path d="M16.5,16 C22.5,15.5 27,10.5 27.5,3.5 C20.5,4 16.5,9 16.5,16 Z" fill="#FAF6EC"/>
+  <ellipse cx="16" cy="24.5" rx="4.8" ry="6.2" fill="#EBCB6E" transform="rotate(-18 16 24.5)"/>
+</svg>

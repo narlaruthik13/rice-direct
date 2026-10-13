@@ -156,11 +156,12 @@ export function Hero() {
         </div>
 
         <div className="hero-intro absolute inset-x-0 top-[8%] px-4 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-husk">Farmer → Mill → You</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-husk">Kisa — farmer-owned food</p>
           <h1 className="mx-auto mt-3 max-w-3xl text-balance text-4xl font-semibold leading-tight text-field-dark sm:text-6xl">
             From paddy field to your plate
           </h1>
-          <p className="mx-auto mt-4 max-w-md text-soil/75 motion-reduce:hidden">Scroll to watch one season unfold.</p>
+          <p className="mx-auto mt-4 max-w-md text-lg text-soil/85">Straight from the farmer. Traceable to the field.</p>
+          <p className="mx-auto mt-2 max-w-md text-sm text-soil/65 motion-reduce:hidden">Scroll to watch one season unfold.</p>
           <svg
             viewBox="0 0 24 24"
             className="mx-auto mt-6 h-6 w-6 text-field motion-safe:animate-bounce motion-reduce:hidden"
