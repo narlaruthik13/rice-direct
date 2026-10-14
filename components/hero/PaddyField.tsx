@@ -1,14 +1,20 @@
 import type { CSSProperties } from "react";
-import gsap from "gsap";
 import { mulberry32 } from "@/lib/random";
+import { cutFrontX } from "@/components/hero/harvest";
 
-// Scene 1 + 2 of the hero: paddy stalks grow from the soil, sway, then ripen
-// from green to gold while the grain heads bend under their weight.
+// Paddy field for the hero: stalks are planted (Monsoon), grow (Grow), then ripen
+// from green to gold while the heads bend (Ripen), then the harvester cuts it to
+// stubble (Harvest).
 //
-// Everything is driven by CSS variables on the <svg class="pf-root">
-// (--pf-grow, --pf-bend and colours; see globals.css). GSAP only scrubs those
-// variables, and the reduced-motion media query pins them to the final
-// "ripe" values, so the static fallback needs no JavaScript.
+// Performance design (Hero v2):
+// - No per-frame CSS variables on the field root (those restyled every descendant,
+//   including 54 <use> shadow trees). Instead a tiny renderer writes only the
+//   transform attributes that changed: one per stalk's grow group and one per head.
+// - Colours come from 3 shared paint servers (gradients); ripening changes 6 stop
+//   colours, so leaves repaint but are never restyled.
+// - Wind is 18 grouped "bands" (3 rows x 6 x-bands) skewing from their row's ground
+//   line with staggered delays, so a breeze moves across the field (was 54 sways).
+// - Static fallback (reduced motion / no JS): CSS overrides draw the ripe field.
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -22,10 +28,8 @@ interface Stalk {
   x: number;
   height: number;
   lean: number;
-  delay: number; // 0..0.45, when this stalk starts growing within --pf-grow
+  delay: number; // 0..0.45, when this stalk starts growing
   bend: number; // degrees the head droops when fully ripe
-  swayDur: number;
-  swayDelay: number;
   leaves: Leaf[];
 }
 
@@ -38,6 +42,7 @@ interface Row {
 
 export const VIEW_W = 1200;
 export const VIEW_H = 800;
+const BANDS = 6;
 
 function buildRows(): Row[] {
   const rand = mulberry32(20260413);
@@ -51,14 +56,17 @@ function buildRows(): Row[] {
     ...row,
     stalks: Array.from({ length: count }, (_, i) => {
       const leafCount = 3;
-      return {
+      const stalk = {
         x: r1(((i + 0.5) / count) * (VIEW_W + 40) - 20 + (rand() - 0.5) * 30),
         height: r1(190 + rand() * 70),
         lean: r1((rand() - 0.5) * 30),
         delay: r1(rand() * 0.45 * 100) / 100,
         bend: r1((100 + rand() * 40) * (rand() < 0.8 ? 1 : -1)),
-        swayDur: r1(3 + rand() * 2.5),
-        swayDelay: r1(-rand() * 5),
+      };
+      rand(); // (former sway duration)
+      rand(); // (former sway delay) — kept so the seeded layout is unchanged
+      return {
+        ...stalk,
         leaves: Array.from({ length: leafCount }, (_, k) => ({
           y0: r1(6 + rand() * 30),
           len: r1(70 + rand() * 60),
@@ -70,74 +78,145 @@ function buildRows(): Row[] {
 }
 
 const ROWS = buildRows();
+/** All stalks in DOM order, with their row. */
+const STALKS = ROWS.flatMap((row) => row.stalks.map((stalk) => ({ stalk, row })));
 
-/**
- * Centres of the ripe (fully bent) grain heads in the mid and front rows, in
- * viewBox units. GrainSpill uses these as the points grains fall from.
- */
-export const HEAD_POINTS = ROWS.slice(1).flatMap((row) =>
-  row.stalks.map((stalk) => {
-    const theta = (stalk.bend * Math.PI) / 180;
-    const r = 33 * 1.4; // half the head length x its scale
-    const hx = stalk.lean + r * Math.sin(theta);
-    const hy = -stalk.height - r * Math.cos(theta);
-    return { x: r1(stalk.x + hx * row.scale), y: r1(row.y + hy * row.scale) };
-  }),
-);
+// ---------- Field state → transforms (shared by server markup and the renderer) ----------
 
-function leafPath({ y0, len, side }: Leaf) {
-  const s = side;
-  return `M0,${-y0} Q${r1(s * len * 0.22)},${r1(-y0 - len * 0.55)} ${r1(s * len * 0.34)},${r1(-y0 - len)} Q${r1(s * len * 0.06)},${r1(-y0 - len * 0.5)} 0,${-y0 - 9} Z`;
+export interface FieldState {
+  /** 0 → 1 Grow progress. */
+  grow: number;
+  /** 0 → 1 Ripen progress (heads bend, green → gold). */
+  bend: number;
+  /** 0 → 1 Monsoon transplanting front (1 = every row planted). */
+  plant: number;
+  /** 0 → 1 Harvest progress: stalks behind the harvester's cutter bar become stubble. */
+  harvest: number;
 }
 
-/** One grain head (panicle), hanging up from (0,0). Reused via <use>. */
+const INITIAL: FieldState = { grow: 0, bend: 0, plant: 1, harvest: 0 };
+const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+const f3 = (n: number) => Math.round(n * 1000) / 1000;
+
+const STUBBLE = 0.09;
+
+/** 0 → 1 as the cutter bar (field x `cutX`) passes the stalk. */
+const cutAmount = (s: Stalk, cutX: number) => clamp01((cutX - s.x) / 16);
+
+function growTransform(s: Stalk, st: FieldState, cutX = -Infinity) {
+  // Planted once the farmer's path (-60 → 1260) passes the stalk; then a 12% seedling until it grows.
+  const planted = clamp01((-60 + st.plant * 1320 - s.x) / 30);
+  const sy = Math.min(1, Math.max(0.12 * planted, (st.grow - s.delay) / 0.5));
+  const cut = cutAmount(s, cutX);
+  return `scale(1 ${f3(Math.max(0, sy + (Math.min(sy, STUBBLE) - sy) * cut))})`;
+}
+
+function headTransform(s: Stalk, st: FieldState, cutX = -Infinity) {
+  const hs = clamp01((st.grow - s.delay - 0.35) / 0.15) * (1 - cutAmount(s, cutX));
+  return `translate(${s.lean} ${-s.height}) scale(1.4) rotate(${f3(st.bend * s.bend)}) scale(${f3(hs)})`;
+}
+
+const GREEN = { leaf: "#5E8C3A", stem: "#4F7A30", grain: "#8FB356" };
+const RIPE = { leaf: "#B39A3C", stem: "#C8A445", grain: "#D4A62A" };
+type Paint = keyof typeof GREEN;
+
+function mixHex(a: string, b: string, t: number) {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(",")})`;
+}
+// Ripen colours ease the same way the old CSS tween did (power1.inOut on bend).
+const paintColor = (p: Paint, st: FieldState) => mixHex(GREEN[p], RIPE[p], st.bend);
+
+// ---------- Geometry ----------
+
+function leavesPath(leaves: Leaf[]) {
+  return leaves
+    .map(({ y0, len, side: s }) =>
+      `M0,${-y0} Q${r1(s * len * 0.22)},${r1(-y0 - len * 0.55)} ${r1(s * len * 0.34)},${r1(-y0 - len)} Q${r1(s * len * 0.06)},${r1(-y0 - len * 0.5)} 0,${-y0 - 9} Z`,
+    )
+    .join(" ");
+}
+
+/** A rotated ellipse as path data (two arcs), so all grains of a head are one <path>. */
+function ellipsePath(cx: number, cy: number, rx: number, ry: number, deg: number) {
+  const a = (deg * Math.PI) / 180;
+  const dx = rx * Math.cos(a);
+  const dy = rx * Math.sin(a);
+  const p1 = `${r1(cx - dx)},${r1(cy - dy)}`;
+  const p2 = `${r1(cx + dx)},${r1(cy + dy)}`;
+  return `M${p1} A${rx},${ry} ${deg} 1 0 ${p2} A${rx},${ry} ${deg} 1 0 ${p1} Z`;
+}
+
+const GRAINS_PATH = [
+  ...Array.from({ length: 7 }, (_, k) => -(6 + k * 8)).flatMap((y) => [
+    ellipsePath(-4, y, 2.6, 5.5, -28),
+    ellipsePath(4, y, 2.6, 5.5, 28),
+  ]),
+  ellipsePath(0, -66, 2.6, 5.5, 0),
+].join(" ");
+
+/** One grain head (panicle), hanging up from (0,0): 2 paths, reused via <use>. */
 function HeadSymbol() {
-  const pairs = Array.from({ length: 7 }, (_, k) => -(6 + k * 8));
   return (
     <g id="pf-head">
-      <line className="pf-rachis" x1="0" y1="0" x2="0" y2="-62" strokeWidth="1.4" strokeLinecap="round" />
-      {pairs.map((y) => (
-        <g key={y}>
-          <ellipse className="pf-grain" cx="-4" cy={y} rx="2.6" ry="5.5" transform={`rotate(-28 -4 ${y})`} />
-          <ellipse className="pf-grain" cx="4" cy={y} rx="2.6" ry="5.5" transform={`rotate(28 4 ${y})`} />
-        </g>
-      ))}
-      <ellipse className="pf-grain" cx="0" cy="-66" rx="2.6" ry="5.5" />
+      <line x1="0" y1="0" x2="0" y2="-62" stroke="url(#pf-paint-stem)" strokeWidth="1.4" strokeLinecap="round" />
+      <path d={GRAINS_PATH} fill="url(#pf-paint-grain)" />
     </g>
   );
 }
 
-function StalkShape({ stalk }: { stalk: Stalk }) {
-  const { height: h, lean } = stalk;
-  const vars = {
-    "--d": stalk.delay,
-    "--bend": stalk.bend,
-    "--sway-dur": `${stalk.swayDur}s`,
-    "--sway-delay": `${stalk.swayDelay}s`,
-  } as CSSProperties;
-
+/** A solid "paint" whose colour the renderer can change by editing two stops. */
+function PaintServer({ id, color }: { id: Paint; color: string }) {
   return (
-    <g className="pf-sway" style={vars}>
-      <g className="pf-grow">
-        {stalk.leaves.map((leaf, i) => (
-          <path key={i} className="pf-leaf" d={leafPath(leaf)} />
-        ))}
-        <path
-          className="pf-stem"
-          d={`M0,0 Q${r1(lean * 0.5)},${r1(-h * 0.5)} ${lean},${-h}`}
-          fill="none"
-          strokeWidth="3.2"
-          strokeLinecap="round"
-        />
-        <g transform={`translate(${lean} ${-h}) scale(1.4)`}>
-          <use href="#pf-head" className="pf-head" />
-        </g>
-      </g>
+    <linearGradient id={`pf-paint-${id}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" className={`pf-stop-${id}`} stopColor={color} />
+      <stop offset="1" className={`pf-stop-${id}`} stopColor={color} />
+    </linearGradient>
+  );
+}
+
+function StalkShape({ stalk, index, st, cutX }: { stalk: Stalk; index: number; st: FieldState; cutX?: number }) {
+  const { height: h, lean } = stalk;
+  return (
+    <g className="pf-grow" data-i={index} transform={growTransform(stalk, st, cutX)}>
+      <path d={leavesPath(stalk.leaves)} fill="url(#pf-paint-leaf)" />
+      <path
+        d={`M0,0 Q${r1(lean * 0.5)},${r1(-h * 0.5)} ${lean},${-h}`}
+        fill="none"
+        stroke="url(#pf-paint-stem)"
+        strokeWidth="3.2"
+        strokeLinecap="round"
+      />
+      <use
+        href="#pf-head"
+        className="pf-head"
+        transform={headTransform(stalk, st, cutX)}
+        // Static per-head values for the CSS fallback (reduced motion), never animated.
+        style={{ "--bend": stalk.bend, "--lean": `${lean}px`, "--h": `${-h}px` } as CSSProperties}
+      />
     </g>
   );
 }
 
-export function PaddyField({ className = "" }: { className?: string }) {
+/**
+ * `sky={false}`: draw only hills, soil and stalks (the hero puts SeasonSky behind it).
+ * `state` / `cutX` (field viewBox x of the cut front) render a fixed moment: the scroll
+ * story leaves them at the start and drives the field with its renderer instead; the
+ * static poster frames set them.
+ */
+export function PaddyField({
+  className = "",
+  sky = true,
+  state,
+  cutX,
+}: {
+  className?: string;
+  sky?: boolean;
+  state?: Partial<FieldState>;
+  cutX?: number;
+}) {
+  const st: FieldState = { ...INITIAL, ...state };
   return (
     <svg
       className={`pf-root ${className}`}
@@ -147,20 +226,17 @@ export function PaddyField({ className = "" }: { className?: string }) {
       aria-label="A paddy field growing from the soil and ripening from green to gold"
     >
       <defs>
-        <linearGradient id="pf-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" className="pf-sky-top" />
-          <stop offset="1" className="pf-sky-bottom" />
-        </linearGradient>
         <linearGradient id="pf-soil" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#8B5E3C" />
           <stop offset="1" stopColor="#4A2F1B" />
         </linearGradient>
+        {(Object.keys(GREEN) as Paint[]).map((p) => (
+          <PaintServer key={p} id={p} color={paintColor(p, st)} />
+        ))}
         <HeadSymbol />
       </defs>
 
-      {/* Sky + sun (sun rises as the field ripens) */}
-      <rect width={VIEW_W} height={VIEW_H} fill="url(#pf-sky)" />
-      <circle className="pf-sun" cx="930" cy="170" r="54" />
+      {sky && <rect width={VIEW_W} height={VIEW_H} fill="#E4EEF0" />}
 
       {/* Distant tree line */}
       <path
@@ -177,13 +253,25 @@ export function PaddyField({ className = "" }: { className?: string }) {
         <path d="M0,745 C400,735 800,758 1200,740" />
       </g>
 
-      {ROWS.map((row) => (
+      {ROWS.map((row, r) => (
         <g key={row.y} opacity={row.opacity}>
-          {row.stalks.map((stalk, i) => (
-            <g key={i} transform={`translate(${stalk.x} ${row.y}) scale(${row.scale})`}>
-              <StalkShape stalk={stalk} />
-            </g>
-          ))}
+          {/* Breeze: each band of stalks skews from this row's ground line; delays make the gust travel across. */}
+          {Array.from({ length: BANDS }, (_, b) => {
+            const inBand = row.stalks.filter((s) => Math.min(BANDS - 1, Math.floor(((s.x + 20) / (VIEW_W + 40)) * BANDS)) === b);
+            return (
+              <g
+                key={b}
+                className="pf-band"
+                style={{ transformOrigin: `0px ${row.y}px`, animationDelay: `${-(b * 0.38 + r * 0.25)}s` } as CSSProperties}
+              >
+                {inBand.map((stalk) => (
+                  <g key={stalk.x} transform={`translate(${stalk.x} ${row.y}) scale(${row.scale})`}>
+                    <StalkShape stalk={stalk} index={STALKS.findIndex((e) => e.stalk === stalk)} st={st} cutX={cutX} />
+                  </g>
+                ))}
+              </g>
+            );
+          })}
         </g>
       ))}
 
@@ -193,41 +281,63 @@ export function PaddyField({ className = "" }: { className?: string }) {
   );
 }
 
-const RIPE = {
-  "--pf-leaf": "#B39A3C",
-  "--pf-stem": "#C8A445",
-  "--pf-grain": "#D4A62A",
-  "--pf-sky-top": "#F2D49B",
-  "--pf-sky-bottom": "#F8EBCB",
-  "--pf-sun": "#F5B942",
-};
+// ---------- Renderer ----------
 
-const GREEN = {
-  "--pf-leaf": "#5E8C3A",
-  "--pf-stem": "#4F7A30",
-  "--pf-grain": "#8FB356",
-  "--pf-sky-top": "#CFE2E3",
-  "--pf-sky-bottom": "#F3EFDD",
-  "--pf-sun": "#F7E3A1",
-};
+interface FieldEngine {
+  state: FieldState;
+  render: () => void;
+}
 
-/**
- * Timeline for the Grow (duration 1) and Ripen (duration 1) scenes.
- * The Hero composes this into its scroll-scrubbed master timeline.
- */
-export function paddyFieldTimeline(scope: Element) {
-  const tl = gsap.timeline();
-  const root = scope.querySelector(".pf-root");
-  if (!root) return tl;
+const engines = new WeakMap<Element, FieldEngine>();
 
-  tl.addLabel("grow")
-    .fromTo(root, { "--pf-grow": 0 }, { "--pf-grow": 1, duration: 1, ease: "none" })
-    .addLabel("ripen")
-    .fromTo(
-      root,
-      { "--pf-bend": 0, ...GREEN },
-      { "--pf-bend": 1, ...RIPE, duration: 1, ease: "power1.inOut" },
-    );
+/** The field renderer for the .pf-root inside `scope` (created on first use). */
+export function getFieldEngine(scope: Element): FieldEngine | null {
+  const root = scope.matches?.(".pf-root") ? scope : scope.querySelector(".pf-root");
+  if (!root) return null;
+  const cached = engines.get(root);
+  if (cached) return cached;
 
-  return tl;
+  const growEls: (Element | undefined)[] = [];
+  const headEls: (Element | undefined)[] = [];
+  root.querySelectorAll(".pf-grow").forEach((g) => {
+    const i = Number(g.getAttribute("data-i"));
+    growEls[i] = g;
+    headEls[i] = g.querySelector(".pf-head") ?? undefined;
+  });
+  const stops = (Object.keys(GREEN) as Paint[]).map((p) => ({ p, els: Array.from(root.querySelectorAll(`.pf-stop-${p}`)) }));
+  const lastGrow: string[] = [];
+  const lastHead: string[] = [];
+  const lastPaint: Record<string, string> = {};
+
+  const state: FieldState = { ...INITIAL };
+  const render = () => {
+    const cutX = cutFrontX(state.harvest);
+    STALKS.forEach(({ stalk }, i) => {
+      const g = growTransform(stalk, state, cutX);
+      if (g !== lastGrow[i]) {
+        growEls[i]?.setAttribute("transform", g);
+        lastGrow[i] = g;
+      }
+      const h = headTransform(stalk, state, cutX);
+      if (h !== lastHead[i]) {
+        headEls[i]?.setAttribute("transform", h);
+        lastHead[i] = h;
+      }
+    });
+    for (const { p, els } of stops) {
+      const c = paintColor(p, state);
+      if (c !== lastPaint[p]) {
+        els.forEach((el) => el.setAttribute("stop-color", c));
+        lastPaint[p] = c;
+      }
+    }
+  };
+  const engine = { state, render };
+  engines.set(root, engine);
+  return engine;
+}
+
+/** Re-render the field from its state (call after the timeline moves). */
+export function renderField(scope: Element) {
+  getFieldEngine(scope)?.render();
 }

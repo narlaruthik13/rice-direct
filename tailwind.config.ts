@@ -41,6 +41,13 @@ const config: Config = {
       maxWidth: {
         site: "72rem",
       },
+      screens: {
+        // Hero layouts. "wide": bag + CTA side by side (desktop, or any landscape screen that is
+        // clearly wider than tall; keep in sync with pourSideLayout in components/hero/harvest.ts).
+        wide: { raw: "(min-width: 1024px), (min-width: 640px) and (min-aspect-ratio: 8/5)" },
+        // "short": landscape phones; captions and the CTA card go compact.
+        short: { raw: "(max-height: 500px)" },
+      },
     },
   },
   plugins: [],

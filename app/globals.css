@@ -25,126 +25,173 @@
 }
 
 /* ---------- Hero: PaddyField ----------
-   GSAP scrubs these variables on .pf-root. Defaults = start of the story
-   (seedlings, green). Per-stalk --d (start delay) and --bend come inline. */
-.pf-root {
-  --pf-grow: 0;
-  --pf-bend: 0;
-  --pf-leaf: #5e8c3a;
-  --pf-stem: #4f7a30;
-  --pf-grain: #8fb356;
-  --pf-sky-top: #cfe2e3;
-  --pf-sky-bottom: #f3efdd;
-  --pf-sun: #f7e3a1;
+   No per-frame CSS variables here (see PaddyField.tsx): a renderer writes each
+   stalk's transform attribute and the 6 paint-server stop colours directly.
+   CSS only adds the breeze. Static frames (posters, no-JS) pass a fixed state as props. */
+.pf-band {
+  /* 18 bands (3 rows x 6) skew from their row's ground line; delays make the gust travel across. */
+  animation: pf-breeze 3.4s ease-in-out infinite alternate;
 }
-.pf-sky-top { stop-color: var(--pf-sky-top); }
-.pf-sky-bottom { stop-color: var(--pf-sky-bottom); }
-.pf-leaf { fill: var(--pf-leaf); }
-.pf-stem,
-.pf-rachis { stroke: var(--pf-stem); }
-.pf-grain { fill: var(--pf-grain); }
-.pf-sun {
-  fill: var(--pf-sun);
-  transform: translateY(calc((1 - var(--pf-bend)) * 140px));
-}
-.pf-sway,
-.pf-grow,
-.pf-head { transform-origin: 0 0; }
-/* Each stalk grows over half of --pf-grow, starting at its own --d. Starts as a 12% seedling. */
-.pf-grow {
-  transform: scaleY(clamp(0.12, calc((var(--pf-grow) - var(--d)) / 0.5), 1));
-}
-/* Head appears near the end of growth, then droops by --bend degrees as it ripens. */
-.pf-head {
-  transform: rotate(calc(var(--pf-bend) * var(--bend) * 1deg))
-    scale(clamp(0, calc((var(--pf-grow) - var(--d) - 0.35) / 0.15), 1));
-}
-.pf-sway {
-  animation: pf-sway var(--sway-dur, 4s) ease-in-out var(--sway-delay, 0s) infinite alternate;
-}
-@keyframes pf-sway {
-  from { transform: rotate(-2.5deg); }
-  to { transform: rotate(2.5deg); }
+@keyframes pf-breeze {
+  from { transform: skewX(-2.5deg); }
+  to { transform: skewX(2.5deg); }
 }
 
-/* Static fallback: fully grown, ripe field, no wind. */
 @media (prefers-reduced-motion: reduce) {
-  .pf-root {
-    --pf-grow: 1 !important;
-    --pf-bend: 1 !important;
-    --pf-leaf: #b39a3c !important;
-    --pf-stem: #c8a445 !important;
-    --pf-grain: #d4a62a !important;
-    --pf-sky-top: #f2d49b !important;
-    --pf-sky-bottom: #f8ebcb !important;
-    --pf-sun: #f5b942 !important;
-  }
-  .pf-sway { animation: none; }
+  .pf-band { animation: none; }
 }
 
-/* ---------- Hero: MillingScene ----------
-   GSAP scrubs --ms-mill (0→1). Per grain: --m1 = travel from the rollers to its
-   slot, --l = husk cracking off. Both stagger by the grain's --i. */
-.ms-root { --ms-mill: 0; }
-.ms-roller-a,
-.ms-roller-b {
+/* ---------- Hero: Birds (Grow) ----------
+   --bd (0→1) on .bd-root flies them across; a tiny loop flaps the wings. */
+.bd-root { --bd: 0; }
+.bd-bird {
+  transform: translate(calc((var(--bx) + var(--bd) * var(--bs)) * 1px), calc((var(--by) - var(--bd) * 40) * 1px));
+  opacity: clamp(0, min(calc(var(--bd) * 10), calc((1 - var(--bd)) * 10)), 1);
+}
+.bd-wing {
   transform-box: fill-box;
   transform-origin: center;
+  animation: bd-flap 0.42s ease-in-out infinite alternate;
 }
-.ms-roller-a { transform: rotate(calc(var(--ms-mill) * 900deg)); }
-.ms-roller-b { transform: rotate(calc(var(--ms-mill) * -900deg)); }
-.ms-grain {
-  --m1: clamp(0, calc((var(--ms-mill) - var(--i) * 0.1) / 0.25), 1);
-  --l: clamp(0, calc((var(--ms-mill) - var(--i) * 0.1 - 0.25) / 0.3), 1);
-  transform-origin: 0 0;
-  transform: translate(calc((1 - var(--m1)) * var(--dx) * 1px), calc((1 - var(--m1)) * -125px))
-    scale(calc(0.5 + var(--m1) * 0.5));
-  opacity: clamp(0, calc(var(--m1) * 5), 1);
-}
-.ms-rice,
-.ms-husk-top,
-.ms-husk-bottom { transform-origin: 0 0; }
-.ms-rice { transform: scale(calc(0.92 + var(--l) * 0.08)); }
-.ms-husk-top {
-  transform: translate(calc(var(--l) * -8px), calc(var(--l) * -46px)) rotate(calc(var(--l) * -32deg));
-  opacity: calc(1 - var(--l));
-}
-.ms-husk-bottom {
-  transform: translate(calc(var(--l) * 10px), calc(var(--l) * 50px)) rotate(calc(var(--l) * 26deg));
-  opacity: calc(1 - var(--l));
+@keyframes bd-flap {
+  from { transform: scaleY(1); }
+  to { transform: scaleY(0.25); }
 }
 
-/* Static fallback: a frozen moment showing white rice, husks cracking and paddy leaving the rollers. */
+/* ---------- Hero: Glow macro (ripe grain close-up) ----------
+   --gl (0→1): fades in 0.28–0.42, holds, fades out 0.66–0.78, gently scaling. */
+.gl-root {
+  --gl: 0;
+  transform-origin: 50% 45%;
+  opacity: clamp(0, min(calc((var(--gl) - 0.28) / 0.14), calc((0.78 - var(--gl)) / 0.12)), 1);
+  transform: scale(calc(0.86 + clamp(0, calc((var(--gl) - 0.28) / 0.5), 1) * 0.18));
+}
+.gl-halos { animation: gl-pulse 2.2s ease-in-out infinite alternate; }
+@keyframes gl-pulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .ms-root { --ms-mill: 0.62 !important; }
+  .bd-wing, .gl-halos { animation: none; }
 }
 
-/* ---------- Hero: RicePour ----------
-   GSAP scrubs --rp-pour (0→1). Stream drops in over the first 10%, flows, and
-   stops near the end; the sack fills out from flat to full. */
-.rp-root {
-  --rp-pour: 0;
-  --rp-fill: clamp(0, calc((var(--rp-pour) - 0.1) / 0.75), 1);
-}
-.rp-stream {
-  transform-origin: 120px 34px;
-  transform: scaleY(clamp(0, calc(var(--rp-pour) / 0.1), 1));
-  opacity: clamp(0, calc((0.95 - var(--rp-pour)) / 0.1), 1);
-}
-.rp-flow { stroke-dashoffset: calc(var(--rp-pour) * -900px + var(--o) * 1px); }
-.rp-root .rb-sack {
-  transform-origin: 120px 290px;
-  transform: scale(calc(1.06 - var(--rp-fill) * 0.06), calc(0.8 + var(--rp-fill) * 0.2));
-}
-.rp-root .rb-mound {
-  transform-origin: 120px 46px;
-  transform: scaleY(clamp(0, calc((var(--rp-fill) - 0.55) / 0.45), 1));
-}
+/* ---------- Hero: Journey (JourneyScene) ----------
+   --jr (0→1) on .jr-root scrolls each layer right by its depth (viewBox units):
+   far fields 120, trees 420, mill 760, road verge 900 (= ROAD_TRAVEL in HarvestScene). */
+.jr-root { --jr: 0; }
+.jr-far { transform: translateX(calc(var(--jr) * 120px)); }
+.jr-mid { transform: translateX(calc(var(--jr) * 420px)); }
+.jr-mill { transform: translateX(calc(var(--jr) * 760px)); }
+.jr-near { transform: translateX(calc(var(--jr) * 900px)); }
+/* The mill's window light warms up as the rig arrives */
+.jr-glow { opacity: calc(0.35 + var(--jr) * 0.65); }
 
-/* Static fallback: a full bag, no stream. */
+/* ---------- Hero: Mill macro (MillMacro) ----------
+   --mm (0→1) on .mm-root: fade in 0–0.18, crack 0.25–0.4, peel 0.4–0.62,
+   shine 0.55–0.8, fade out 0.84–1. Phases are derived once here. */
+.mm-root {
+  --mm: 0;
+  --mm-crack: clamp(0, calc((var(--mm) - 0.25) / 0.15), 1);
+  --mm-peel: clamp(0, calc((var(--mm) - 0.4) / 0.22), 1);
+  --mm-shine: clamp(0, calc((var(--mm) - 0.55) / 0.25), 1);
+  opacity: clamp(0, min(calc(var(--mm) / 0.18), calc((1 - var(--mm)) / 0.16)), 1);
+}
+.mm-grain { transform: scale(calc(0.82 + clamp(0, calc(var(--mm) / 0.4), 1) * 0.2)); }
+.mm-crack {
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc((1 - var(--mm-crack)) * 100);
+  opacity: calc(1 - var(--mm-peel) * 3);
+}
+.mm-husk-top {
+  transform: translate(calc(var(--mm-peel) * -70px), calc(var(--mm-peel) * -170px)) rotate(calc(var(--mm-peel) * -24deg));
+  opacity: calc(1 - var(--mm-peel) * 0.35);
+}
+.mm-husk-bot {
+  transform: translate(calc(var(--mm-peel) * 80px), calc(var(--mm-peel) * 170px)) rotate(calc(var(--mm-peel) * 20deg));
+  opacity: calc(1 - var(--mm-peel) * 0.35);
+}
+.mm-shine { transform: translateX(calc(-280px + var(--mm-shine) * 560px)) skewX(-20deg); }
+.mm-glow { opacity: calc(clamp(0, calc((var(--mm) - 0.45) / 0.2), 1) * 0.9); }
+
+/* ---------- Hero: Your Home (HomeScene) ----------
+   Steam rises from the bowl in a slow, staggered loop (decorative; not scroll-driven). */
+.hm-steam path {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: hm-steam 3.3s ease-in-out infinite;
+}
+@keyframes hm-steam {
+  0% { opacity: 0; transform: translateY(14px) scaleY(0.85); }
+  35% { opacity: 0.55; }
+  100% { opacity: 0; transform: translateY(-22px) scaleY(1.05); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .rp-root { --rp-pour: 1 !important; }
+  .hm-steam path { animation: none; opacity: 0.35; }
 }
+
+/* ---------- Hero: Monsoon scene (MonsoonScene) ----------
+   GSAP scrubs --mn (0→1) on .mn-root:
+   0–0.28 sprout rises · 0.3–0.55 macro zooms away · 0.35+ puddles · 0.45–0.95 farmer plants. */
+.mn-root { --mn: 0; }
+.mn-sprout {
+  transform-origin: 588px 578px;
+  transform: scaleY(clamp(0, calc(var(--mn) / 0.28), 1));
+}
+.mn-macro {
+  transform-origin: 50% 88%;
+  transform: scale(calc(1 - clamp(0, calc((var(--mn) - 0.3) / 0.25), 1) * 0.92));
+  opacity: clamp(0, calc(1 - (var(--mn) - 0.33) / 0.14), 1);
+}
+/* Puddles: appear with the wet field, dry up as the season clears */
+.mn-puddles {
+  opacity: clamp(0, min(calc((var(--mn) - 0.35) / 0.2), calc(1 - var(--season) * 1.2)), 1);
+}
+.mn-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mn-ripple 1.8s ease-out infinite;
+}
+@keyframes mn-ripple {
+  from { transform: scale(0.3); opacity: 0.9; }
+  to { transform: scale(1.8); opacity: 0; }
+}
+/* Farmer walks left → right across the rows (same path as the field's planting front: -60 → 1260) */
+.mn-farmer {
+  transform: translateX(calc((-60 + clamp(0, calc((var(--mn) - 0.45) / 0.5), 1) * 1320) * 1px));
+  opacity: clamp(0, min(calc((var(--mn) - 0.42) * 12), calc((1 - var(--mn)) * 20)), 1);
+}
+.mn-walk { animation: mn-walk 0.55s ease-in-out infinite alternate; }
+@keyframes mn-walk {
+  from { transform: translateY(0); }
+  to { transform: translateY(-3px); }
+}
+/* Rain: light CSS lines; stops as the season clears (--season from the timeline) */
+.mn-rain { opacity: clamp(0, calc(1 - var(--season) * 1.25), 1); }
+.mn-drop {
+  position: absolute;
+  top: -12%;
+  width: 1.5px;
+  height: var(--len);
+  background: linear-gradient(to bottom, transparent, rgba(232, 238, 242, 0.9));
+  animation: mn-fall var(--dur) linear var(--delay) infinite;
+}
+@keyframes mn-fall {
+  to { transform: translate3d(-36px, 125vh, 0); }
+}
+/* Phones (portrait, or short landscape): 30 drops instead of 80 */
+@media (max-width: 639px), (max-height: 500px) {
+  .mn-drop:nth-child(n + 31) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mn-ripple, .mn-walk, .mn-drop { animation: none; }
+}
+
+/* ---------- Hero: season / light system (SeasonSky, SeasonTint) ----------
+   GSAP scrubs --season (0 monsoon → 5 morning) on .season-root only, never on the
+   field. Static frames pin it inline (SeasonSky / SeasonTint `season` prop). */
+.season-root { --season: 0; }
+.season-tint { mix-blend-mode: multiply; }
 
 /* ---------- Onion story (OnionScene) ----------
    GSAP scrubs four variables on .os-root: --os-pull, --os-dry, --os-sort, --os-pack (0→1).

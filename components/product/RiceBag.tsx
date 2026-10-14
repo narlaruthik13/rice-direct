@@ -1,9 +1,8 @@
 import { useId } from "react";
 
 // Jute-style rice sack with a printed label (farmer, variety, weight, batch).
-// RiceBagShape is a bare <g> (bag drawn in a 240x300 box) so the hero's
-// RicePour can embed and animate it; RiceBag wraps it in its own <svg>.
-// Hooks for animation: .rb-sack (whole sack) and .rb-mound (rice at the mouth).
+// RiceBagShape is a bare <g> (bag drawn in a 240x300 box) so other packs can
+// embed it; RiceBag wraps it in its own <svg>.
 
 interface RiceBagProps {
   farmerName: string;
