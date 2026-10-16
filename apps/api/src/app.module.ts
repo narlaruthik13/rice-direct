@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { DashboardModule } from "./admin/dashboard";
 import { AuthModule } from "./auth/auth.module";
 import { CatalogueModule } from "./catalogue/catalogue.controller";
 import { validateEnv } from "./config/env";
@@ -18,6 +19,7 @@ import { PrismaModule } from "./prisma/prisma.service";
     PrismaModule,
     AuthModule,
     CatalogueModule,
+    DashboardModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

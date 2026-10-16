@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 //   mark      a sprout: two leaves rising from a grain (built on a 32px grid, works at 16px)
 //   full      mark + wordmark
 //
-// The same mark paths are used in app/icon.svg and app/apple-icon.png.
+// The same mark paths are used in apps/web/app/icon.svg and apps/web/app/apple-icon.png.
 
 type Variant = "full" | "wordmark" | "mark";
 type Scheme = "light" | "dark";

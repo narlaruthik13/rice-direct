@@ -9,7 +9,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
 import bcrypt from "bcryptjs";
 import request from "supertest";
-import type { AdminLoginResponse, AuthTokens, Product, ProductListResponse, TraceResponse } from "@kisa/shared";
+import type { AdminLoginResponse, AuthTokens, DashboardSummary, Product, ProductListResponse, TraceResponse } from "@kisa/shared";
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/app.setup";
 import { PrismaService } from "../src/prisma/prisma.service";
@@ -19,12 +19,30 @@ const seed = JSON.parse(readFileSync(join(__dirname, "../../../packages/db/prism
 const run = randomUUID().slice(0, 8);
 const ADMIN = { email: `e2e-${run}@kisa.test`, password: `Pw-${randomUUID()}`, name: "E2E Admin" };
 const EXPIRED = { batchId: `KS-E2E-${run.toUpperCase()}`, slug: `e2e-expired-onions-${run}` };
+const LOW = { batchId: `KS-E2E-${run.toUpperCase()}-LOW`, slug: `e2e-low-rice-${run}` };
+const SOON = { batchId: `KS-E2E-${run.toUpperCase()}-SOON`, slug: `e2e-soon-onions-${run}` };
+const FIXTURE_BATCHES = [EXPIRED.batchId, LOW.batchId, SOON.batchId];
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
+/** A DATE value n days after today in India. */
+const todayPlus = (n: number) =>
+  new Date(Date.parse(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date())}T00:00:00.000Z`) + n * 86_400_000);
+const product = (slug: string, bagSizeKg: number) => ({
+  slug,
+  name: `E2E ${slug}`,
+  bagSizeKg,
+  farmerSharePaise: 1000 * bagSizeKg,
+  partnerSharePaise: 100 * bagSizeKg,
+  platformFeePaise: 100 * bagSizeKg,
+  pricePaise: 1200 * bagSizeKg,
+  description: "Test only",
+  tags: [],
+});
 
 describe("Kisa API (e2e)", () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
   let adminId: string;
+  let accessToken: string; // from the successful login, reused by the dashboard tests
   const api = () => request(app.getHttpServer());
 
   beforeAll(async () => {
@@ -57,26 +75,48 @@ describe("Kisa API (e2e)", () => {
         expiresOn: daysAgo(10),
         attributes: { curingDays: 10, gradingDate: daysAgo(45).toISOString().slice(0, 10), sizeGrade: "medium" },
         quality: { grade: "A" },
-        products: {
-          create: {
-            slug: EXPIRED.slug,
-            name: "E2E expired onions",
-            bagSizeKg: 5,
-            farmerSharePaise: 10000,
-            partnerSharePaise: 1500,
-            platformFeePaise: 1000,
-            pricePaise: 12500,
-            description: "Test only",
-            tags: [],
-          },
-        },
+        products: { create: product(EXPIRED.slug, 5) },
+      },
+    });
+
+    const common = { harvestDate: daysAgo(60), inputKg: 100, outputKg: 90, quality: { grade: "A" } } as const;
+    await prisma.batch.create({
+      data: {
+        ...common,
+        id: LOW.batchId,
+        categoryId: "rice",
+        salesModel: "FARMER_OWNED",
+        farmerId: "farmer-ramana",
+        partnerId: "mill-godavari",
+        variety: "Sona Masoori",
+        packedDate: daysAgo(5),
+        availableKg: 15, // one 10 kg pack left
+        attributes: { age: "new", millingDate: daysAgo(6).toISOString().slice(0, 10) },
+        products: { create: product(LOW.slug, 10) },
+      },
+    });
+    await prisma.batch.create({
+      data: {
+        ...common,
+        id: SOON.batchId,
+        categoryId: "onions",
+        salesModel: "FARMER_OWNED",
+        farmerId: "farmer-shankar",
+        partnerId: "packhouse-lasalgaon",
+        variety: "Nashik Red",
+        packedDate: daysAgo(27),
+        availableKg: 50,
+        shelfLifeDays: 30,
+        expiresOn: todayPlus(3), // still sold for 3 more days
+        attributes: { curingDays: 10, gradingDate: daysAgo(30).toISOString().slice(0, 10), sizeGrade: "large" },
+        products: { create: product(SOON.slug, 5) },
       },
     });
   });
 
   afterAll(async () => {
-    await prisma.product.deleteMany({ where: { slug: EXPIRED.slug } });
-    await prisma.batch.deleteMany({ where: { id: EXPIRED.batchId } });
+    await prisma.product.deleteMany({ where: { batchId: { in: FIXTURE_BATCHES } } });
+    await prisma.batch.deleteMany({ where: { id: { in: FIXTURE_BATCHES } } });
     await prisma.adminUser.deleteMany({ where: { id: adminId } }); // sessions cascade
     await app.close();
   });
@@ -118,6 +158,7 @@ describe("Kisa API (e2e)", () => {
         .send({ email: ADMIN.email.toUpperCase(), password: ADMIN.password }) // email is case-insensitive
         .expect(200);
       session = res.body;
+      accessToken = session.accessToken;
       expect(session).toMatchObject({ tokenType: "Bearer", expiresIn: 900, refreshExpiresIn: 604800 });
       expect(session.accessToken).toBeTruthy();
       expect(session.refreshToken).toBeTruthy();
@@ -253,6 +294,37 @@ describe("Kisa API (e2e)", () => {
         requestId: expect.any(String),
       });
       await api().get("/api/v1/trace/KS-0000-NOPE").expect(404);
+    });
+  });
+
+  describe("admin dashboard", () => {
+    it("needs a valid access token", async () => {
+      await api().get("/api/v1/admin/dashboard/summary").expect(401);
+    });
+
+    it("returns stock counts, low-stock batches and onions expiring within 7 days", async () => {
+      const res = await api().get("/api/v1/admin/dashboard/summary").set("Authorization", `Bearer ${accessToken}`).expect(200);
+      const s: DashboardSummary = res.body;
+
+      expect(s.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(s.ordersToday).toBe(0);
+      expect(s.products.active).toBe(s.products.inStock + s.products.soldOut);
+      // The expired fixture is not active; the two other fixtures are.
+      const activeInDb = await prisma.product.count({
+        where: { isActive: true, batch: { OR: [{ expiresOn: null }, { expiresOn: { gt: new Date(`${s.today}T00:00:00.000Z`) } }] } },
+      });
+      expect(s.products.active).toBe(activeInDb);
+      expect(s.soldOut.count).toBe(s.products.soldOut);
+      expect(s.soldOut.items.length).toBeLessThanOrEqual(5);
+
+      const low = s.lowStock.items.find((b) => b.batchId === LOW.batchId);
+      expect(low).toMatchObject({ categoryId: "rice", availableKg: 15, packSizeKg: 10, packsLeft: 1 });
+      expect(s.lowStock.items.every((b) => b.packsLeft === 1)).toBe(true);
+
+      const soon = s.expiringSoon.items.find((b) => b.batchId === SOON.batchId);
+      expect(soon).toMatchObject({ categoryId: "onions", daysLeft: 3, availableKg: 50 });
+      expect(s.expiringSoon.items.map((b) => b.batchId)).not.toContain(EXPIRED.batchId);
+      expect(s.expiringSoon.items.every((b) => b.daysLeft >= 1 && b.daysLeft <= 7)).toBe(true);
     });
   });
 });

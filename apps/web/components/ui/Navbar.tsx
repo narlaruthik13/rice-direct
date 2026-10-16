@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { selectCartCount, useCartStore } from "@/store/cart";
-import { Logo } from "@/components/ui/Logo";
+import { Logo } from "@kisa/ui/logo";
 import { categoryList } from "@/lib/categories";
 
 // Category links come from lib/categories.ts, so a new crop appears here automatically.

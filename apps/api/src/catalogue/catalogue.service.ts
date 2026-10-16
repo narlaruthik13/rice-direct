@@ -7,18 +7,15 @@ import type {
   ProductListResponse,
   TraceResponse,
 } from "@kisa/shared";
+import { todayInIndia } from "../common/dates";
 import { PrismaService } from "../prisma/prisma.service";
 import { isInStock, toBatch, toCategory, toFarmer, toPartner, toProduct } from "./mappers";
-
-/** Today's date in India, as a DATE value (expiry is a calendar date, not a moment). */
-const todayInIndia = () =>
-  new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date())}T00:00:00.000Z`);
 
 /**
  * A batch can be sold if its category is active and it has not reached expiresOn
  * (perishables stop selling on that date; non-perishables have no expiry).
  */
-const sellable = (today: Date): Prisma.BatchWhereInput => ({
+export const sellable = (today: Date): Prisma.BatchWhereInput => ({
   category: { isActive: true },
   OR: [{ expiresOn: null }, { expiresOn: { gt: today } }],
 });

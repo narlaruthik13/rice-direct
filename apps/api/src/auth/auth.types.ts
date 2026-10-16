@@ -2,7 +2,6 @@ import type { Request } from "express";
 import type { AdminUser } from "@kisa/db";
 import type { AdminProfile, AdminRole } from "@kisa/shared";
 
-export const ACCESS_TTL_SECONDS = 15 * 60; // 15 minutes
 export const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 export const JWT_ISSUER = "kisa-api";
 export const JWT_AUDIENCE = "kisa-admin";

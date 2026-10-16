@@ -73,3 +73,47 @@ export interface ApiError {
   requestId?: string;
   issues?: { path: string; message: string }[];
 }
+
+// ---------- Admin dashboard ----------
+
+export interface DashboardProductItem {
+  slug: string;
+  name: string;
+  batchId: string;
+}
+
+export interface DashboardStockItem {
+  batchId: string;
+  categoryId: CategoryId;
+  variety: string;
+  /** Names of the active packs sold from this batch. */
+  products: string[];
+  availableKg: number;
+  /** Smallest active pack size of the batch, kg. */
+  packSizeKg: number;
+  packsLeft: number;
+}
+
+export interface DashboardExpiringItem {
+  batchId: string;
+  categoryId: CategoryId;
+  variety: string;
+  /** First date the batch is no longer sold (YYYY-MM-DD). */
+  expiresOn: string;
+  daysLeft: number;
+  availableKg: number;
+}
+
+/** Each list holds at most 5 items; `count` is the full total. */
+export interface DashboardSummary {
+  /** Today in India (YYYY-MM-DD). */
+  today: string;
+  generatedAt: string;
+  ordersToday: number;
+  products: { active: number; inStock: number; soldOut: number };
+  soldOut: { count: number; items: DashboardProductItem[] };
+  /** Batches with at least 1 but fewer than 2 packs left. */
+  lowStock: { count: number; items: DashboardStockItem[] };
+  /** Perishable batches with stock that stop selling within 7 days. */
+  expiringSoon: { count: number; items: DashboardExpiringItem[] };
+}

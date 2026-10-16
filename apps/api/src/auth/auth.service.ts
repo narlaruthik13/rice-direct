@@ -8,7 +8,6 @@ import type { AdminLoginInput, AdminLoginResponse, AuthTokens } from "@kisa/shar
 import type { Env } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
 import {
-  ACCESS_TTL_SECONDS,
   type AccessTokenPayload,
   type ClientMeta,
   JWT_AUDIENCE,
@@ -109,11 +108,12 @@ export class AuthService {
     const access: AccessTokenPayload = { sub: admin.id, role: admin.role, sid: sessionId, typ: "access" };
     const refresh: RefreshTokenPayload = { sub: admin.id, sid: sessionId, typ: "refresh" };
     const common = { issuer: JWT_ISSUER, audience: JWT_AUDIENCE };
+    const accessTtl = this.config.get("JWT_ACCESS_TTL_SECONDS", { infer: true });
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(access, {
         ...common,
         secret: this.config.get("JWT_ACCESS_SECRET", { infer: true }),
-        expiresIn: ACCESS_TTL_SECONDS,
+        expiresIn: accessTtl,
       }),
       this.jwt.signAsync(refresh, {
         ...common,
@@ -125,7 +125,7 @@ export class AuthService {
     return {
       tokenType: "Bearer",
       accessToken,
-      expiresIn: ACCESS_TTL_SECONDS,
+      expiresIn: accessTtl,
       refreshToken,
       refreshExpiresIn: REFRESH_TTL_SECONDS,
     };

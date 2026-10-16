@@ -39,3 +39,7 @@ next-env.d.ts
 # monorepo build outputs
 .turbo/
 dist/
+
+# playwright
+e2e/.results/
+playwright-report/

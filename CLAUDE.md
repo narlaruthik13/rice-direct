@@ -59,6 +59,11 @@ Phase 1 and Phase 1.5 are complete and live. Phase 2 moves the project into a mo
 - The **"production"** branch is only for the deployed API. Its URLs are set on the hosting platform, never in local files.
 - `DATABASE_URL` is the pooled connection (runtime); `DIRECT_URL` is the direct connection (Prisma Migrate).
 
+### Deployment checklist (before the first production deploy)
+- **Refresh-token reuse grace period:** the admin's single-flight refresh is in-memory, so on Vercel (several middleware instances) parallel refreshes can still trip the API's token-reuse protection and sign an admin out. Add a short grace period (~10 s) in the API during which a just-rotated refresh token is accepted.
+- **Login rate limiting by email + IP, with a trusted forwarded IP:** the API sees every admin login coming from the admin server's IP, so the per-IP limit is shared by all admins. Rate-limit by email + client IP, where the admin server forwards the client IP and the API trusts it only from the admin server (shared secret header).
+- Run `prisma migrate deploy` against the production branch from the hosting platform or CI (never from a local machine).
+
 ### Phase 2 build steps (one at a time)
 1. Restructure into the monorepo (no visual change)
 2. `packages/db`: schema + seed from current mock data

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Logo } from "@/components/ui/Logo";
+import { Logo } from "@kisa/ui/logo";
 
 // Internal brand sheet: every logo variant, scheme and size in one place.
 export const metadata: Metadata = {
