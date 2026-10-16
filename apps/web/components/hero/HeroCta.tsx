@@ -1,41 +1,62 @@
+"use client";
+
 import Link from "next/link";
+import { createContext, useContext, type ReactNode } from "react";
+import type { RiceType } from "@kisa/shared";
 import { HomeScene } from "@/components/hero/HomeScene";
 import type { BagLabelInfo } from "@/components/hero/Sack";
 import { buttonClasses } from "@/components/ui/Button";
-import { getTrace, products } from "@/data/mock";
 import { formatDate } from "@/lib/format";
 import { typeLabel } from "@/lib/rice";
 
 // The hero's product and the closing call to action, shared by the scroll story,
 // the reduced-motion poster frames and the no-JS final frame. No GSAP here.
 
-// The bag in the final scene: the first featured pack in stock.
-export const heroProduct = products.find((p) => p.featured && p.inStock) ?? products[0];
-const heroPassport = getTrace(heroProduct.batchId)!.passport;
+/** The bag in the final scene: a featured pack, loaded by the home page on the server. */
+export interface HeroData {
+  label: BagLabelInfo & { batchId: string };
+  riceType: RiceType;
+  millingDate: string;
+}
 
-export const heroLabel: BagLabelInfo = {
-  variety: heroProduct.variety.name,
-  weightKg: heroProduct.bagSizeKg,
-  batchId: heroProduct.batchId,
-};
+const HeroDataContext = createContext<HeroData | null>(null);
+
+export function HeroDataProvider({ data, children }: { data: HeroData | null; children: ReactNode }) {
+  return <HeroDataContext.Provider value={data}>{children}</HeroDataContext.Provider>;
+}
+
+/** Null when the catalogue couldn't be loaded: the story still plays, with a plain label. */
+export const useHeroData = () => useContext(HeroDataContext);
+
+const FALLBACK_LABEL: BagLabelInfo = { variety: "Fresh rice", weightKg: 10 };
+export const useHeroLabel = (): BagLabelInfo => useHeroData()?.label ?? FALLBACK_LABEL;
 
 /** Final step card: the ending line, plus Shop Now and the Quality Passport. Compact on short (landscape phone) screens. */
 export function PourCta({ className = "" }: { className?: string }) {
+  const hero = useHeroData();
   return (
     <div className={`w-full max-w-sm rounded-2xl bg-rice/95 p-6 text-soil shadow-card short:max-w-xs short:p-4 ${className}`}>
       <p className="text-xs font-bold tracking-widest text-paddy-dark">08</p>
       <h2 className="mt-1 text-2xl font-semibold text-field short:text-lg">From the mill to your plate.</h2>
       <p className="mt-2 text-sm leading-relaxed text-soil/80 short:hidden">
-        {heroProduct.variety.name}, {typeLabel(heroProduct.riceType).toLowerCase()} rice, milled on {formatDate(heroPassport.millingDate)} and packed in a
-        Kisa bag. Every bag carries batch <span className="font-mono text-xs">{heroProduct.batchId}</span> and its Quality Passport.
+        {hero ? (
+          <>
+            {hero.label.variety}, {typeLabel(hero.riceType).toLowerCase()} rice, milled on {formatDate(hero.millingDate)} and packed in a Kisa bag. Every
+            bag carries batch <span className="font-mono text-xs">{hero.label.batchId}</span> and its Quality Passport.
+          </>
+        ) : (
+          "Raw, steam and boiled rice, milled fresh and packed in Kisa bags, each with its own Quality Passport."
+        )}
       </p>
       <div className="mt-5 flex flex-wrap gap-3 short:mt-3">
         <Link href="/shop" className={buttonClasses("primary")}>
           Shop Now <span aria-hidden="true">→</span>
         </Link>
-        <Link href={`/trace/${heroProduct.batchId}`} className={buttonClasses("secondary")}>
-          See the Quality Passport
-        </Link>
+        {hero && (
+          <Link href={`/trace/${hero.label.batchId}`} className={buttonClasses("secondary")}>
+            See the Quality Passport
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -47,9 +68,10 @@ export const CTA_POSITION =
 
 /** The story's last frame, fully shown: the bag on the kitchen table beside steaming rice, plus the CTA. */
 export function FinalFrame({ className = "" }: { className?: string }) {
+  const label = useHeroLabel();
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      <HomeScene label={heroLabel} className="absolute inset-0" />
+      <HomeScene label={label} className="absolute inset-0" />
       <div className={CTA_POSITION}>
         <PourCta className="pointer-events-auto" />
       </div>

@@ -2,28 +2,28 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProductDetail, products } from "@/data/mock";
+import { getProduct, getProducts, load, staticProductSlugs } from "@/lib/data";
 import { formatDate, formatINR } from "@/lib/format";
 import { ageLabel, cookingNotes, typeLabel } from "@/lib/rice";
 import { AddToCart } from "@/components/product/AddToCart";
 import { ProductCard } from "@/components/product/ProductCard";
 import { QualityReport } from "@/components/product/QualityReport";
 import { RiceBag } from "@/components/product/RiceBag";
+import { CatalogueUnavailable } from "@/components/ui/CatalogueUnavailable";
 
 interface Props {
   params: { id: string };
 }
 
-// Pre-render every product; unknown ids 404.
-export const dynamicParams = false;
+// Mock data: every product is pre-rendered. API: rendered on demand from cached data. Unknown slugs 404.
 export function generateStaticParams() {
-  return products.map((p) => ({ id: p.id }));
+  return staticProductSlugs().map((id) => ({ id }));
 }
 
-export function generateMetadata({ params }: Props): Metadata {
-  const detail = getProductDetail(params.id);
-  if (!detail) return {};
-  const { product } = detail;
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const detail = await load(() => getProduct(params.id));
+  if (!detail.ok || !detail.data) return {};
+  const { product } = detail.data;
   return {
     title: `${product.name} (${product.bagSizeKg} kg)`,
     description: `${product.description} ${product.variety.name}, ${typeLabel(product.riceType).toLowerCase()} rice, ${ageLabel(product.age).toLowerCase()}. Batch ${product.batchId}.`,
@@ -40,13 +40,23 @@ function Section({ title, eyebrow, children }: { title: string; eyebrow: string;
   );
 }
 
-export default function ProductPage({ params }: Props) {
-  const detail = getProductDetail(params.id);
-  if (!detail) notFound();
-  const { product, passport } = detail;
+export default async function ProductPage({ params }: Props) {
+  const loaded = await load(async () => {
+    const detail = await getProduct(params.id);
+    return detail && { ...detail, sameVariety: await getProducts({ variety: detail.product.variety.slug }) };
+  });
+  if (!loaded.ok) {
+    return (
+      <div className="mx-auto max-w-site px-4 py-12 sm:px-6">
+        <CatalogueUnavailable retryHref={`/product/${encodeURIComponent(params.id)}`} />
+      </div>
+    );
+  }
+  if (!loaded.data) notFound();
+  const { product, passport, sameVariety } = loaded.data;
   const notes = cookingNotes(product.riceType, product.age);
   const aged = product.age === "AGED";
-  const moreOfVariety = products.filter((p) => p.variety.slug === product.variety.slug && p.id !== product.id).slice(0, 3);
+  const moreOfVariety = sameVariety.filter((p) => p.id !== product.id).slice(0, 3);
 
   const facts = [
     { label: "Variety", value: product.variety.name },

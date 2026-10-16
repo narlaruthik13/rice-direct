@@ -1,6 +1,6 @@
 // Mock data in the PUBLIC API's exact shapes, captured from the API by
-// scripts/snapshot-api.mjs (see that file to refresh it). Pages read data only
-// through these helpers, so connecting to the API swaps the data source here.
+// scripts/snapshot-api.mjs (see that file to refresh it). Only lib/data.ts reads
+// this file (DATA_SOURCE=mock); pages and components never import it.
 //
 // The helpers mirror the endpoints:
 //   categories        GET /categories

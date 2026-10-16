@@ -41,6 +41,8 @@ export function ProductCard({ product }: { product: Product }) {
 
   return (
     <motion.article
+      data-testid="product-card"
+      data-product-id={product.id}
       className="flex w-full flex-col overflow-hidden rounded-2xl bg-white/70 ring-1 ring-husk/10"
       variants={cardVariants}
       initial="rest"
@@ -73,7 +75,9 @@ export function ProductCard({ product }: { product: Product }) {
 
         <div className="mt-auto flex items-center justify-between gap-3 pt-5">
           <div>
-            <span className="font-display text-2xl font-semibold">{formatINR(product.price)}</span>
+            <span className="font-display text-2xl font-semibold" data-testid="card-price">
+              {formatINR(product.price)}
+            </span>
             <span className="block text-xs text-soil/60">{formatINR(Math.round(product.price / product.bagSizeKg))}/kg</span>
           </div>
           <Button

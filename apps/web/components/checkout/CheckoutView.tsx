@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type InputHTMLAttributes } from "react";
 import { useCartHydrated, useCartStore } from "@/store/cart";
+import type { Product } from "@kisa/shared";
 import { cartTotals, getCartLines } from "@/lib/cart";
 import { formatINR } from "@/lib/format";
 import { makeOrderId, saveOrder, type Address } from "@/lib/order";
@@ -72,7 +73,7 @@ function Field({ label, name, error, optional, className = "", ...props }: Field
   );
 }
 
-export function CheckoutView() {
+export function CheckoutView({ products }: { products: Product[] }) {
   const router = useRouter();
   const hydrated = useCartHydrated();
   const items = useCartStore((s) => s.items);
@@ -86,7 +87,7 @@ export function CheckoutView() {
   const payTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(payTimer.current), []); // leaving mid-"payment" cancels it
 
-  const lines = getCartLines(items);
+  const lines = getCartLines(items, products);
   const totals = cartTotals(lines);
 
   const set = (name: keyof Address, value: string) => {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
+import type { Product } from "@kisa/shared";
 import { cartTotals, getCartLines } from "@/lib/cart";
 import { formatINR } from "@/lib/format";
 import { useCartHydrated, useCartStore } from "@/store/cart";
@@ -11,13 +12,13 @@ import { buttonClasses } from "@/components/ui/Button";
 
 const MAX_QTY = 10;
 
-export function CartView() {
+export function CartView({ products }: { products: Product[] }) {
   const hydrated = useCartHydrated();
   const items = useCartStore((s) => s.items);
   const setQuantity = useCartStore((s) => s.setQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
 
-  const lines = getCartLines(items);
+  const lines = getCartLines(items, products);
 
   // Avoid flashing "empty" before the saved cart loads from localStorage.
   if (!hydrated) {

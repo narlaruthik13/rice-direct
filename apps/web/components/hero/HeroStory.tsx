@@ -13,7 +13,7 @@ import { SeasonSky, SeasonTint } from "@/components/hero/SeasonSky";
 import { MonsoonScene } from "@/components/hero/MonsoonScene";
 import { JourneyScene } from "@/components/hero/JourneyScene";
 import { HomeScene } from "@/components/hero/HomeScene";
-import { CTA_POSITION, heroLabel, PourCta } from "@/components/hero/HeroCta";
+import { CTA_POSITION, PourCta, useHeroLabel } from "@/components/hero/HeroCta";
 import { buildHeroTimeline, CAPTIONED_SCENES, isLayerMounted, sceneIndexAt, SCENES, TOTAL_UNITS } from "@/components/hero/scenes";
 
 // The scroll story: every scene layer, the grain canvas, captions, the season
@@ -117,6 +117,7 @@ export function HeroStory({
     };
   }, [storyOn, active, sectionRef, stageRef]);
 
+  const heroLabel = useHeroLabel(); // stable: the page passes it once
   // Heavy layers are memoised so a scene change only mounts/unmounts them, never re-renders.
   const fieldLayer = useMemo(
     () => (
@@ -141,7 +142,7 @@ export function HeroStory({
         <HarvestLabel {...heroLabel} />
       </>
     ),
-    [],
+    [heroLabel],
   );
   const journeyLayer = useMemo(() => <JourneyScene className="invisible absolute inset-0 h-full w-full opacity-0" />, []);
   const monsoonLayer = useMemo(() => <MonsoonScene className="absolute inset-0" />, []);
@@ -157,7 +158,7 @@ export function HeroStory({
         </div>
       </>
     ),
-    [],
+    [heroLabel],
   );
 
   return (

@@ -5,6 +5,8 @@
 import type { RiceAge, RiceQuality, RiceType } from "@kisa/shared";
 
 export const RICE_TYPES: RiceType[] = ["RAW", "STEAM", "BOILED"];
+/** Kisa bag sizes in kg (the rice category's pack sizes). */
+export const PACK_SIZES = [5, 10, 25];
 const RICE_TYPE_LABEL: Record<RiceType, string> = { RAW: "Raw", STEAM: "Steam", BOILED: "Boiled" };
 const RICE_AGE_LABEL: Record<RiceAge, string> = { NEW: "New crop", AGED: "Aged" };
 export const typeLabel = (t: RiceType) => RICE_TYPE_LABEL[t];

@@ -1,14 +1,13 @@
 import type { CartItem, Product } from "@kisa/shared";
-import { getProduct } from "@/data/mock";
 
 export interface CartLine extends CartItem {
   product: Product;
 }
 
-/** Join cart items with catalogue data; drop anything no longer in the catalogue. */
-export function getCartLines(items: CartItem[]): CartLine[] {
+/** Join cart items with catalogue data (loaded by the page); drop anything no longer on sale. */
+export function getCartLines(items: CartItem[], products: Product[]): CartLine[] {
   return items.flatMap((item) => {
-    const product = getProduct(item.productId);
+    const product = products.find((p) => p.id === item.productId);
     return product ? [{ ...item, product }] : [];
   });
 }

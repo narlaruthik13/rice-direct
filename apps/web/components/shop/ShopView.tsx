@@ -3,18 +3,15 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import type { RiceType } from "@kisa/shared";
-import { categories, products, varieties } from "@/data/mock";
+import type { Product, RiceType, Variety } from "@kisa/shared";
 import { activeFilterCount, applyFilters, EMPTY_FILTERS, parseFilters, toQuery, type ShopFilters as Filters, type SortKey } from "@/lib/shop";
-import { RICE_TYPES, TYPE_INTRO, typeLabel } from "@/lib/rice";
+import { PACK_SIZES, RICE_TYPES, TYPE_INTRO, typeLabel } from "@/lib/rice";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import { Button } from "@/components/ui/Button";
 
-const packSizes = categories.find((c) => c.id === "rice")?.packSizesKg ?? [5, 10, 25];
-
-/** Browse by type (tabs), then narrow by variety, age and pack size. */
-export function ShopView() {
+/** Browse by type (tabs), then narrow by variety, age and pack size. The page loads the data on the server. */
+export function ShopView({ products, varieties }: { products: Product[]; varieties: Variety[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -22,7 +19,7 @@ export function ShopView() {
 
   // The URL is the single source of truth for filters.
   const filters = useMemo(() => parseFilters(params), [params]);
-  const results = useMemo(() => applyFilters(products, filters), [filters]);
+  const results = useMemo(() => applyFilters(products, filters), [products, filters]);
   const activeCount = activeFilterCount(filters);
 
   const setFilters = (next: Filters) => {
@@ -33,7 +30,7 @@ export function ShopView() {
   const clear = () => setFilters({ ...EMPTY_FILTERS, type: filters.type, sort: filters.sort });
 
   const tabs: { value: RiceType | null; label: string }[] = [{ value: null, label: "All rice" }, ...RICE_TYPES.map((t) => ({ value: t, label: typeLabel(t) }))];
-  const filterPanel = <ShopFilters filters={filters} update={update} onClear={clear} varieties={varieties} packSizes={packSizes} />;
+  const filterPanel = <ShopFilters filters={filters} update={update} onClear={clear} varieties={varieties} packSizes={PACK_SIZES} />;
 
   return (
     <div className="mt-8">

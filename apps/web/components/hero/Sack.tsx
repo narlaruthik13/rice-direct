@@ -77,7 +77,8 @@ export function ClosedSack() {
 export interface BagLabelInfo {
   variety: string;
   weightKg: number;
-  batchId: string;
+  /** Missing only on the fallback label, when the catalogue can't be loaded. */
+  batchId?: string;
 }
 
 /**
@@ -100,9 +101,11 @@ export function BagLabel({ variety, weightKg, batchId, className = "" }: BagLabe
       <p className="font-extrabold leading-none text-field" style={{ marginTop: u(1), fontSize: u(9.5) }}>
         {weightKg} kg
       </p>
-      <p className="font-mono leading-none text-[#5A4636]" style={{ marginTop: u(2), fontSize: u(3.25) }}>
-        {batchId}
-      </p>
+      {batchId && (
+        <p className="font-mono leading-none text-[#5A4636]" style={{ marginTop: u(2), fontSize: u(3.25) }}>
+          {batchId}
+        </p>
+      )}
     </div>
   );
 }

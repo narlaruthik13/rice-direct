@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@kisa/ui/logo";
-import { products } from "@/data/mock";
+import { getProducts, load, pickFeatured } from "@/lib/data";
 
-// A real batch from the catalogue, so the Quality Passport link always works.
-const sampleBatch = (products.find((p) => p.featured && p.inStock) ?? products[0]).batchId;
-
-const columns = [
+const columns = (sampleBatch: string | undefined) => [
   {
     title: "Shop",
     links: [
@@ -20,12 +17,16 @@ const columns = [
     title: "Learn",
     links: [
       { href: "/#how-it-works", label: "How it works" },
-      { href: `/trace/${sampleBatch}`, label: "A Quality Passport" },
+      // A real batch from the catalogue, so the link always works.
+      ...(sampleBatch ? [{ href: `/trace/${sampleBatch}`, label: "A Quality Passport" }] : []),
     ],
   },
 ];
 
-export function Footer() {
+export async function Footer() {
+  const catalogue = await load(() => getProducts());
+  const sampleBatch = catalogue.ok ? pickFeatured(catalogue.data)?.batchId : undefined;
+
   return (
     <footer className="mt-24 bg-field-dark text-rice/85">
       <div className="mx-auto grid max-w-site gap-10 px-4 py-14 sm:px-6 md:grid-cols-[2fr_1fr_1fr]">
@@ -41,7 +42,7 @@ export function Footer() {
           </p>
         </div>
 
-        {columns.map((col) => (
+        {columns(sampleBatch).map((col) => (
           <div key={col.title}>
             <h2 className="font-sans text-sm font-semibold uppercase tracking-wider text-paddy-light">{col.title}</h2>
             <ul className="mt-4 space-y-2.5 text-sm">

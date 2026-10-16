@@ -1,37 +1,46 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTrace, traceIds } from "@/data/mock";
+import { getTrace, load, staticBatchIds } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 import { ageLabel, typeLabel } from "@/lib/rice";
 import { ProductCard } from "@/components/product/ProductCard";
 import { QualityReport } from "@/components/product/QualityReport";
 import { PassportTimeline } from "@/components/trace/PassportTimeline";
+import { CatalogueUnavailable } from "@/components/ui/CatalogueUnavailable";
 
 interface Props {
   params: { batchId: string };
 }
 
-// The page a bag's QR code opens. Pre-render every batch; unknown ids 404.
-export const dynamicParams = false;
+// The page a bag's QR code opens. Mock data: every batch is pre-rendered. API: rendered on
+// demand from cached data. Unknown ids 404.
 export function generateStaticParams() {
-  return traceIds().map((batchId) => ({ batchId }));
+  return staticBatchIds().map((batchId) => ({ batchId }));
 }
 
-export function generateMetadata({ params }: Props): Metadata {
-  const trace = getTrace(params.batchId);
-  if (!trace) return {};
-  const p = trace.passport;
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const trace = await load(() => getTrace(params.batchId));
+  if (!trace.ok || !trace.data) return {};
+  const p = trace.data.passport;
   return {
     title: `Quality Passport ${p.batchId}`,
     description: `${p.variety.name}, ${typeLabel(p.riceType).toLowerCase()} rice. Milled ${formatDate(p.millingDate)}, packed ${formatDate(p.packedDate)}, best before ${formatDate(p.bestBefore)}.`,
   };
 }
 
-export default function QualityPassportPage({ params }: Props) {
-  const trace = getTrace(params.batchId);
-  if (!trace) notFound();
-  const { passport, products } = trace;
+export default async function QualityPassportPage({ params }: Props) {
+  const trace = await load(() => getTrace(params.batchId));
+  if (!trace.ok) {
+    return (
+      <div className="mx-auto max-w-site px-4 py-12 sm:px-6">
+        <p className="mb-6 text-xs font-semibold uppercase tracking-[0.2em] text-husk">Quality Passport</p>
+        <CatalogueUnavailable retryHref={`/trace/${encodeURIComponent(params.batchId)}`} />
+      </div>
+    );
+  }
+  if (!trace.data) notFound();
+  const { passport, products } = trace.data;
   const pastBestBefore = passport.bestBefore <= new Date().toISOString().slice(0, 10);
 
   return (

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Reveal } from "@/components/ui/Reveal";
 import { ProductCard } from "@/components/product/ProductCard";
-import { products } from "@/data/mock";
+import type { Product } from "@kisa/shared";
+import { CatalogueUnavailable } from "@/components/ui/CatalogueUnavailable";
 
-/** Featured packs, in-stock first. */
-export function FeaturedProducts() {
-  const featured = products.filter((p) => p.featured).sort((a, b) => Number(b.inStock) - Number(a.inStock));
+/** Featured packs, in-stock first. `products` is null when the catalogue couldn't be loaded. */
+export function FeaturedProducts({ products }: { products: Product[] | null }) {
+  const featured = (products ?? []).filter((p) => p.featured).sort((a, b) => Number(b.inStock) - Number(a.inStock));
 
   return (
     <section id="featured" className="scroll-mt-20 bg-rice-dim/60 py-20 sm:py-28">
@@ -23,13 +24,17 @@ export function FeaturedProducts() {
           </Link>
         </Reveal>
 
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {featured.map((product, i) => (
-            <Reveal key={product.id} delay={(i % 3) * 0.08} className="flex">
-              <ProductCard product={product} />
-            </Reveal>
-          ))}
-        </div>
+        {products ? (
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {featured.map((product, i) => (
+              <Reveal key={product.id} delay={(i % 3) * 0.08} className="flex">
+                <ProductCard product={product} />
+              </Reveal>
+            ))}
+          </div>
+        ) : (
+          <CatalogueUnavailable retryHref="/#featured" className="mt-10" />
+        )}
       </div>
     </section>
   );
