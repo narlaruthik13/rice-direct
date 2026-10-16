@@ -1,0 +1,4 @@
+{
+  "extends": "@kisa/config/tsconfig/base.json",
+  "include": ["src"]
+}

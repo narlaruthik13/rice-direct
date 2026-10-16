@@ -115,7 +115,6 @@ apps/
       ui/        (Navbar, Footer, Button)
     data/mock.ts
     store/cart.ts
-    lib/types.ts
     lib/categories.ts
   admin/                   admin panel (Next.js + shadcn/ui)
   api/                     backend (NestJS + Prisma)
