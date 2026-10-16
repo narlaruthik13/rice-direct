@@ -2,9 +2,15 @@
   "name": "@kisa/config",
   "version": "0.0.0",
   "private": true,
-  "files": ["tailwind-preset.js", "tsconfig", "eslint"],
+  "files": [
+    "tailwind-preset.js",
+    "tsconfig",
+    "eslint"
+  ],
   "dependencies": {
-    "eslint-config-next": "14.2.35"
+    "eslint-config-next": "14.2.35",
+    "@typescript-eslint/eslint-plugin": "^8.71.2",
+    "@typescript-eslint/parser": "^8.71.2"
   },
   "peerDependencies": {
     "tailwindcss": "^3.4.1"

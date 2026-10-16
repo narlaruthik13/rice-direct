@@ -335,4 +335,25 @@ model AdminUser {
   updatedAt    DateTime  @updatedAt
 
   orderEvents OrderEvent[]
+  sessions    AdminSession[]
+}
+
+/// One login on one device. Holds a hash of the current refresh token; each refresh
+/// rotates it (the old session is revoked and points to its replacement).
+model AdminSession {
+  id               String    @id // also the "sid" claim in the tokens
+  adminUserId      String
+  /// SHA-256 of the refresh token. The token itself is never stored.
+  refreshTokenHash String    @unique
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  /// Set on rotation: the session that replaced this one.
+  replacedById     String?
+  userAgent        String?
+  ipAddress        String?
+  createdAt        DateTime  @default(now())
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
 }

@@ -1,0 +1,14 @@
+{
+  "extends": "@kisa/config/tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "noEmit": true,
+    "declaration": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": false,
+    "types": ["node", "jest"]
+  },
+  "include": ["src", "test"]
+}
