@@ -65,7 +65,7 @@ export default async function DashboardPage() {
         <Stat label="In stock" value={s.products.inStock} icon={PackageCheck} />
         <Stat label="Sold out" value={s.products.soldOut} icon={CircleSlash} tone={s.products.soldOut ? "danger" : "default"} />
         <Stat label="Low stock" value={s.lowStock.count} icon={AlertTriangle} tone={s.lowStock.count ? "warn" : "default"} />
-        <Stat label="Expiring soon" value={s.expiringSoon.count} icon={Timer} tone={s.expiringSoon.count ? "warn" : "default"} />
+        <Stat label="Best before ≤ 30 days" value={s.bestBeforeSoon.count} icon={Timer} tone={s.bestBeforeSoon.count ? "warn" : "default"} />
       </section>
 
       <section className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -86,19 +86,19 @@ export default async function DashboardPage() {
           ))}
         </ListCard>
 
-        <ListCard title="Onions expiring soon" description="Batches that stop selling within 7 days." count={s.expiringSoon.count} empty="No onion batches expire this week.">
-          {s.expiringSoon.items.map((b) => (
+        <ListCard title="Best before within 30 days" description="Batches with stock that stop selling soon." count={s.bestBeforeSoon.count} empty="No batch reaches its best-before date in the next 30 days.">
+          {s.bestBeforeSoon.items.map((b) => (
             <li key={b.batchId} className="flex items-start justify-between gap-3 py-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{b.variety}</p>
                 <p className="font-mono text-xs text-muted-foreground">{b.batchId}</p>
               </div>
               <div className="shrink-0 text-right text-sm">
-                <Badge variant={b.daysLeft <= 2 ? "danger" : "warning"}>
+                <Badge variant={b.daysLeft <= 7 ? "danger" : "warning"}>
                   {b.daysLeft} {b.daysLeft === 1 ? "day" : "days"} left
                 </Badge>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {b.availableKg} kg · until {shortDate(b.expiresOn)}
+                  {b.availableKg} kg · until {shortDate(b.bestBefore)}
                 </p>
               </div>
             </li>

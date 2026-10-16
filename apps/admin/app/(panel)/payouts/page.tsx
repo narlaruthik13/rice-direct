@@ -7,7 +7,7 @@ export default function Page() {
   return (
     <ComingSoon
       title="Payouts"
-      description="Weekly settlements to farmers and partners, split by sales model."
+      description="Weekly settlements to each mill for the rice it packed and Kisa sold."
       step="Coming after Phase 2"
     />
   );

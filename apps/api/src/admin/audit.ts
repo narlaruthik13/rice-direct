@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { AuditAction, Prisma } from "@kisa/db";
 
-export type AuditEntity = "Farmer" | "Partner" | "Batch" | "Product";
+export type AuditEntity = "Mill" | "Variety" | "Batch" | "Product";
 export type Changes = Record<string, { before: unknown; after: unknown }>;
 
 /** Fields whose values differ between two snapshots, as { field: { before, after } }. */

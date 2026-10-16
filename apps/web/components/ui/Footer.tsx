@@ -1,22 +1,26 @@
 import Link from "next/link";
 import { Logo } from "@kisa/ui/logo";
+import { products } from "@/data/mock";
+
+// A real batch from the catalogue, so the Quality Passport link always works.
+const sampleBatch = (products.find((p) => p.featured && p.inStock) ?? products[0]).batchId;
 
 const columns = [
   {
     title: "Shop",
     links: [
-      { href: "/shop", label: "Shop all" },
-      { href: "/shop/rice", label: "Rice" },
-      { href: "/shop/rice?age=aged", label: "Aged rice" },
-      { href: "/shop/onions", label: "Onions" },
+      { href: "/shop", label: "All rice" },
+      { href: "/shop?type=RAW", label: "Raw rice" },
+      { href: "/shop?type=STEAM", label: "Steam rice" },
+      { href: "/shop?type=BOILED", label: "Boiled rice" },
+      { href: "/shop?age=AGED", label: "Aged rice" },
     ],
   },
   {
     title: "Learn",
     links: [
       { href: "/#how-it-works", label: "How it works" },
-      { href: "/#farmers", label: "Our farmers" },
-      { href: "/trace/KS-2026-0412-SM", label: "Trace a pack" },
+      { href: `/trace/${sampleBatch}`, label: "A Quality Passport" },
     ],
   },
 ];
@@ -29,12 +33,11 @@ export function Footer() {
           <Link href="/" aria-label="Kisa home" className="inline-flex py-1">
             <Logo variant="full" size={34} scheme="dark" />
           </Link>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-paddy-light">Farmer-owned food</p>
-          <p className="mt-2 font-display text-lg text-rice">Straight from the farmer. Traceable to the field.</p>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-paddy-light">Kisa — mill-fresh rice</p>
+          <p className="mt-2 font-display text-lg text-rice">Mill-fresh rice, honestly priced.</p>
           <p className="mt-3 text-sm leading-relaxed text-rice/70">
-            Rice and onions from the farmers who grew them, processed by trusted local mills and
-            packhouses, delivered to you. No middlemen. Every pack
-            traceable, every rupee shown.
+            Rice packed fresh by partner mills in Kisa bags, checked by Kisa and delivered to you in Hyderabad. No middlemen:
+            from the mill to your plate, with a Quality Passport on every bag.
           </p>
         </div>
 
@@ -56,7 +59,7 @@ export function Footer() {
 
       <div className="border-t border-rice/10">
         <div className="mx-auto flex max-w-site flex-col gap-2 px-4 py-5 text-xs text-rice/55 sm:flex-row sm:justify-between sm:px-6">
-          <p>© 2026 Kisa — farmer-owned food. All farmers, mills and packhouses shown are sample data.</p>
+          <p>© 2026 Kisa — mill-fresh rice. Products and batches shown are sample data.</p>
           <p>Demo store: no real payments are taken.</p>
         </div>
       </div>

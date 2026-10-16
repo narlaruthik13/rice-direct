@@ -1,13 +1,17 @@
 // Query schemas for the public catalogue endpoints.
 import { z } from "zod";
-
-export const SalesModelSchema = z.enum(["FARMER_OWNED", "PARTNER_SOURCED"]);
+import { RICE_AGES, RICE_TYPES } from "../categories";
 
 export const ProductListQuerySchema = z
   .object({
-    /** Category id, e.g. "rice" or "onions". */
+    /** Category id; only "rice" today. */
     category: z.string().regex(/^[a-z0-9-]{1,40}$/, "Invalid category").optional(),
-    salesModel: SalesModelSchema.optional(),
+    riceType: z.enum(RICE_TYPES).optional(),
+    /** Variety slug, e.g. "sona-masoori". */
+    variety: z.string().regex(/^[a-z0-9-]{1,60}$/, "Invalid variety").optional(),
+    age: z.enum(RICE_AGES).optional(),
+    /** Pack size in kg, e.g. 10. */
+    packSize: z.coerce.number().int().positive().max(100).optional(),
     /** "true": only products with enough stock for one pack. */
     inStock: z
       .enum(["true", "false"])

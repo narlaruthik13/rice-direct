@@ -2,12 +2,19 @@
 // DATABASE_URL: pooled connection (PgBouncer), used by the app at runtime.
 // DIRECT_URL:   direct connection, used by Prisma Migrate (migrations need a session, not a pool).
 //
+// Business model: Kisa is a rice-only brand. Partner mills pack rice in Kisa-branded
+// bags; Kisa sells to customers (mill → Kisa → customer). Mills are recorded for
+// payouts and quality, and are never shown publicly. No farmers.
+//
 // Conventions
 // - Money is integer paise (₹62 = 6200). No floats for money; matches Razorpay.
 // - Weights are whole kg (every pack size is whole kg).
+// - Category-specific fields (rice: riceType, age) live in Batch.attributes and are
+//   validated per category in @kisa/shared, so new categories need no schema change.
 // - CHECK constraints that Prisma cannot express live in the migration SQL:
-//     Batch.availableKg >= 0                     (no overselling)
-//     Product.pricePaise = farmer + partner + platform share
+//     Batch: 0 <= availableKg <= packedKg; packedDate >= millingDate; bestBefore > packedDate
+//     Product.pricePaise = millPricePaise + kisaMarginPaise
+//     Order.totalPaise = millTotalPaise + kisaMarginTotalPaise + deliveryFeePaise
 
 generator client {
   provider = "prisma-client-js"
@@ -20,22 +27,6 @@ datasource db {
 }
 
 // ---------- Enums ----------
-
-enum SalesModel {
-  FARMER_OWNED // Model B: farmer owns the produce, pays the partner a processing fee
-  PARTNER_SOURCED // Model A: partner buys from the farmer at a published price
-}
-
-enum PartnerType {
-  MILL
-  PACKHOUSE
-}
-
-enum FarmingMethod {
-  CONVENTIONAL
-  LOW_CHEMICAL
-  NATURAL
-}
 
 enum OrderStatus {
   PLACED
@@ -70,125 +61,109 @@ enum StockAdjustmentReason {
 
 // ---------- Catalogue ----------
 
-/// Business settings per crop. Display config (theme, copy, filters) stays in apps/web/lib/categories.ts.
+/// A product line, e.g. rice. Only "rice" is active today; dal or millets can be added
+/// as rows (plus their attribute rules in @kisa/shared) without a schema change.
 model Category {
-  id                    String      @id // "rice", "onions"; matches CategoryId in @kisa/shared
-  name                  String
-  slug                  String      @unique
-  partnerType           PartnerType
-  perishable            Boolean     @default(false)
-  platformFeePerKgPaise Int
-  packSizesKg           Int[]
-  isActive              Boolean     @default(true)
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  id            String   @id // "rice"
+  name          String
+  slug          String   @unique
+  packSizesKg   Int[]
+  /// Default best-before: packed date + this many days.
+  shelfLifeDays Int
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  varieties Variety[]
+  batches   Batch[]
+}
+
+/// Admin-managed list of varieties per category, e.g. Sona Masoori, BPT 5204, HMT.
+model Variety {
+  id         String   @id @default(cuid())
+  categoryId String
+  name       String
+  slug       String   @unique
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id])
+  batches  Batch[]
+
+  @@unique([categoryId, name])
+}
+
+/// A partner mill that packs rice in Kisa bags. Never shown to customers.
+model Mill {
+  id             String   @id @default(cuid())
+  name           String
+  contactName    String?
+  phone          String?  @unique
+  town           String
+  district       String
+  state          String
+  fssaiLicense   String?
+  certifications String[]
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   batches Batch[]
 }
 
-model Farmer {
-  id           String        @id @default(cuid())
-  name         String
-  phone        String?       @unique
-  village      String
-  district     String
-  state        String
-  acres        Float
-  yearsFarming Int
-  method       FarmingMethod
-  story        String
-  photoUrl     String?
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  batches Batch[]
-}
-
-/// A processing partner: a rice mill or an onion packhouse.
-model Partner {
-  id                      String      @id @default(cuid())
-  type                    PartnerType
-  name                    String
-  phone                   String?     @unique
-  town                    String
-  district                String
-  state                   String
-  /// FARMER_OWNED: fee charged to the farmer per kg of finished produce.
-  processingFeePerKgPaise Int
-  certifications          String[]
-  established             Int
-  isActive                Boolean     @default(true)
-  createdAt               DateTime    @default(now())
-  updatedAt               DateTime    @updatedAt
-
-  batches Batch[]
-}
-
-/// One traceable lot: one farmer's harvest, processed by one partner. Stock lives here.
+/// One lot packed by one mill. Printed on the bag + QR → /trace/[batchId] (the Quality Passport).
 model Batch {
-  id          String     @id // printed on the pack + QR → /trace/[batchId], e.g. KS-2026-0412-SM
+  id          String   @id // KS-YYYY-MMDD-XX, e.g. KS-2026-0412-SM
   categoryId  String
-  salesModel  SalesModel
-  farmerId    String
-  partnerId   String
-  variety     String
-  harvestDate DateTime   @db.Date
-  packedDate  DateTime   @db.Date
-  /// Raw produce in (paddy, harvested onions), kg.
-  inputKg     Int
-  /// Sellable produce out after processing, kg.
-  outputKg    Int
-  /// Stock left to sell, kg. Reduced when an order is paid. CHECK >= 0.
+  varietyId   String
+  millId      String
+  millingDate DateTime @db.Date
+  packedDate  DateTime @db.Date
+  /// Not sold from this date on.
+  bestBefore  DateTime @db.Date
+  /// Kg packed in Kisa bags.
+  packedKg    Int
+  /// Stock left to sell, kg. Reduced when an order is paid. CHECK 0..packedKg.
   availableKg Int
-
-  /// PARTNER_SOURCED only: when the partner bought the lot, at the published price per raw kg.
-  purchaseDate            DateTime? @db.Date
-  purchasePricePerKgPaise Int?
-
-  /// Perishable crops: days the packed produce keeps, and the date it stops being sold (packedDate + shelfLifeDays).
-  shelfLifeDays Int?
-  expiresOn     DateTime? @db.Date
-
-  /// Crop-specific fields, e.g. rice { millingDate, age }, onions { curingDays, gradingDate, sizeGrade }.
-  attributes Json
-  /// Crop-specific quality report (RiceQuality / OnionQuality in @kisa/shared).
-  quality    Json
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  /// Category-specific fields, e.g. rice { riceType: "RAW" | "STEAM" | "BOILED", age: "NEW" | "AGED" }.
+  attributes  Json
+  /// Category-specific quality report (RiceQuality in @kisa/shared).
+  quality     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   category         Category          @relation(fields: [categoryId], references: [id])
-  farmer           Farmer            @relation(fields: [farmerId], references: [id])
-  partner          Partner           @relation(fields: [partnerId], references: [id])
+  variety          Variety           @relation(fields: [varietyId], references: [id])
+  mill             Mill              @relation(fields: [millId], references: [id])
   products         Product[]
   orderItems       OrderItem[]
   stockAdjustments StockAdjustment[]
 
-  @@index([categoryId, packedDate]) // FIFO: oldest batch first
-  @@index([farmerId])
-  @@index([partnerId])
+  @@index([categoryId, packedDate])
+  @@index([varietyId])
+  @@index([millId])
 }
 
-/// A pack of one batch, e.g. 10 kg of KS-2026-0412-SM. Price parts are per pack.
+/// A pack of one batch, e.g. 10 kg of KS-2026-0412-SM. Prices are per pack.
 model Product {
-  id                String   @id @default(cuid())
-  slug              String   @unique // URL: /product/[slug]
-  name              String
-  batchId           String
-  bagSizeKg         Int
-  /// Model-neutral split. FARMER_OWNED: farmer share / processing fee. PARTNER_SOURCED: paid to farmer / partner margin.
-  farmerSharePaise  Int
-  partnerSharePaise Int
-  platformFeePaise  Int
-  /// Always farmer + partner + platform (CHECK constraint).
-  pricePaise        Int
-  description       String
-  tags              String[]
-  featured          Boolean  @default(false)
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String   @id @default(cuid())
+  slug            String   @unique // URL: /product/[slug]
+  name            String
+  batchId         String
+  bagSizeKg       Int
+  /// Paid to the mill per pack. Never shown publicly.
+  millPricePaise  Int
+  /// Kisa's margin per pack. Never shown publicly.
+  kisaMarginPaise Int
+  /// Always mill price + Kisa margin (CHECK constraint). The only price customers see.
+  pricePaise      Int
+  description     String
+  tags            String[]
+  featured        Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   batch      Batch       @relation(fields: [batchId], references: [id])
   orderItems OrderItem[]
@@ -232,12 +207,11 @@ model Order {
 
   paymentMethod String
 
-  // Totals (paise): sums of the item splits, plus delivery.
-  farmerTotalPaise   Int
-  partnerTotalPaise  Int
-  platformTotalPaise Int
-  deliveryFeePaise   Int @default(0)
-  totalPaise         Int
+  // Totals (paise): sums of the item snapshots, plus delivery.
+  millTotalPaise       Int
+  kisaMarginTotalPaise Int
+  deliveryFeePaise     Int @default(0)
+  totalPaise           Int
 
   paidAt       DateTime?
   deliveredAt  DateTime?
@@ -257,23 +231,21 @@ model Order {
   @@index([deliveryDate, deliverySlotId])
 }
 
-/// One line of an order. Snapshots price and payees so weekly payouts never depend on today's catalogue.
+/// One line of an order. Snapshots the mill and the price split, so weekly mill payouts
+/// never depend on today's catalogue.
 model OrderItem {
-  id                String     @id @default(cuid())
-  orderId           String
-  productId         String
-  batchId           String
-  productName       String
-  bagSizeKg         Int
-  quantity          Int
-  salesModel        SalesModel
-  farmerId          String
-  partnerId         String
+  id              String @id @default(cuid())
+  orderId         String
+  productId       String
+  batchId         String
+  millId          String
+  productName     String
+  bagSizeKg       Int
+  quantity        Int
   // Per pack, at the time of ordering (paise).
-  unitPricePaise    Int
-  farmerSharePaise  Int
-  partnerSharePaise Int
-  platformFeePaise  Int
+  unitPricePaise  Int
+  millPricePaise  Int
+  kisaMarginPaise Int
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
@@ -281,8 +253,7 @@ model OrderItem {
 
   @@index([orderId])
   @@index([batchId])
-  @@index([farmerId])
-  @@index([partnerId])
+  @@index([millId])
 }
 
 /// Status history: every transition, who made it and why.
@@ -380,7 +351,7 @@ model AdminSession {
 model AdminAuditLog {
   id          String      @id @default(cuid())
   adminUserId String
-  /// "Farmer", "Partner", "Batch" or "Product".
+  /// "Mill", "Variety", "Batch" or "Product".
   entity      String
   entityId    String
   action      AuditAction

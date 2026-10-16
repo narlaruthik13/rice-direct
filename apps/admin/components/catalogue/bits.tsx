@@ -1,6 +1,6 @@
 import type { StockStatusValue } from "@kisa/shared";
 import { Badge } from "@/components/ui/badge";
-import { rupees } from "@/lib/format";
+import { marginPct, rupees } from "@/lib/format";
 
 const STOCK: Record<StockStatusValue, { label: string; variant: "secondary" | "warning" | "danger" }> = {
   in_stock: { label: "In stock", variant: "secondary" },
@@ -16,40 +16,21 @@ export function StockBadge({ status }: { status: StockStatusValue }) {
   );
 }
 
-export function ExpiryBadge({ daysLeft }: { daysLeft: number | null }) {
-  if (daysLeft === null) return null;
-  if (daysLeft <= 0) return <Badge variant="danger">Expired</Badge>;
-  return <Badge variant={daysLeft <= 7 ? "warning" : "outline"}>{daysLeft} days left</Badge>;
+/** Days until the best-before date: highlighted within 30 days, red once past. */
+export function BestBeforeBadge({ daysLeft }: { daysLeft: number }) {
+  if (daysLeft <= 0) return <Badge variant="danger">Past best-before</Badge>;
+  if (daysLeft <= 30) return <Badge variant="warning">{daysLeft} days to best-before</Badge>;
+  return null;
 }
 
-export const partLabels = (model: "FARMER_OWNED" | "PARTNER_SOURCED") =>
-  model === "FARMER_OWNED"
-    ? { farmer: "Farmer's share", partner: "Processing fee", platform: "Platform fee" }
-    : { farmer: "Paid to farmer", partner: "Partner margin", platform: "Platform fee" };
-
 const round2 = (n: number) => Math.round(n * 100) / 100;
-export const sumParts = (a: number, b: number, c: number) => round2((Number(a) || 0) + (Number(b) || 0) + (Number(c) || 0));
+export const priceOf = (millPrice: number, kisaMargin: number) => round2((Number(millPrice) || 0) + (Number(kisaMargin) || 0));
 
-/** Live split of one pack's price: each party's rupees and share of the price. */
-export function PricePreview({
-  model,
-  farmerShare,
-  partnerShare,
-  platformFee,
-}: {
-  model: "FARMER_OWNED" | "PARTNER_SOURCED";
-  farmerShare: number;
-  partnerShare: number;
-  platformFee: number;
-}) {
-  const labels = partLabels(model);
-  const parts = [
-    { key: "farmer", label: labels.farmer, value: Number(farmerShare) || 0, color: "bg-field" },
-    { key: "partner", label: labels.partner, value: Number(partnerShare) || 0, color: "bg-husk" },
-    { key: "platform", label: labels.platform, value: Number(platformFee) || 0, color: "bg-paddy" },
-  ];
-  const price = sumParts(parts[0].value, parts[1].value, parts[2].value);
-  const pct = (v: number) => (price > 0 ? `${Math.round((v / price) * 1000) / 10}%` : "–");
+/** Live preview of one pack: the total customers pay, and how it splits (admin only). */
+export function PricePreview({ millPrice, kisaMargin }: { millPrice: number; kisaMargin: number }) {
+  const mill = Number(millPrice) || 0;
+  const margin = Number(kisaMargin) || 0;
+  const price = priceOf(mill, margin);
   return (
     <div className="rounded-md border bg-secondary/40 p-3" data-testid="price-preview">
       <div className="flex items-baseline justify-between">
@@ -59,23 +40,28 @@ export function PricePreview({
         </span>
       </div>
       <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-secondary" aria-hidden="true">
-        {parts.map((p) => (
-          <div key={p.key} className={p.color} style={{ width: price > 0 ? `${(p.value / price) * 100}%` : 0 }} />
-        ))}
+        <div className="bg-husk" style={{ width: price > 0 ? `${(mill / price) * 100}%` : 0 }} />
+        <div className="bg-paddy" style={{ width: price > 0 ? `${(margin / price) * 100}%` : 0 }} />
       </div>
-      <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
-        {parts.map((p) => (
-          <div key={p.key}>
-            <dt className="flex items-center gap-1 text-muted-foreground">
-              <span className={`size-2 rounded-full ${p.color}`} aria-hidden="true" />
-              {p.label}
-            </dt>
-            <dd className="font-semibold">
-              {rupees(p.value)} <span className="font-normal text-muted-foreground">({pct(p.value)})</span>
-            </dd>
-          </div>
-        ))}
+      <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <dt className="flex items-center gap-1 text-muted-foreground">
+            <span className="size-2 rounded-full bg-husk" aria-hidden="true" />
+            Mill price
+          </dt>
+          <dd className="font-semibold">{rupees(mill)}</dd>
+        </div>
+        <div>
+          <dt className="flex items-center gap-1 text-muted-foreground">
+            <span className="size-2 rounded-full bg-paddy" aria-hidden="true" />
+            Kisa margin
+          </dt>
+          <dd className="font-semibold" data-testid="preview-margin">
+            {rupees(margin)} <span className="font-normal text-muted-foreground">({marginPct(margin, price)})</span>
+          </dd>
+        </div>
       </dl>
+      <p className="mt-2 text-xs text-muted-foreground">Customers see only the total.</p>
     </div>
   );
 }

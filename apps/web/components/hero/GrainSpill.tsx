@@ -35,7 +35,7 @@ import { mulberry32 } from "@/lib/random";
 //              huller's hopper; after the macro, each comes out of the output chute as
 //              white rice (arcing onto a growing pile) while its two husk halves blow
 //              out of the aspirator.
-// pour    0→1: the stream from the chute carries on into the farmer's sack: rice of
+// pour    0→1: the stream from the chute carries on into the Kisa sack: rice of
 //              varied size and rotation, a slightly widening stream, a heap rising in
 //              the sack's mouth (in step with the sack's bulge), a few grains bouncing.
 //

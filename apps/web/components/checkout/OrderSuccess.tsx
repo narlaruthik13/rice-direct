@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { loadOrder, type OrderSnapshot } from "@/lib/order";
 import { formatINR } from "@/lib/format";
-import { PriceBreakdown } from "@/components/product/PriceBreakdown";
 import { buttonClasses } from "@/components/ui/Button";
 
 function SuccessMark() {
@@ -55,8 +54,8 @@ export function OrderSuccess() {
         <SuccessMark />
         <h1 className="mt-4 text-3xl font-semibold text-field sm:text-4xl">Thank you, {a.name.split(" ")[0]}!</h1>
         <p className="mt-2 text-soil/75">
-          Your Kisa order <span className="font-mono font-semibold">{order.id}</span> is placed. It&apos;s coming straight from
-          the farmer, and every pack is traceable to the field.
+          Your Kisa order <span className="font-mono font-semibold">{order.id}</span> is placed. It&apos;s mill-fresh rice in Kisa bags,
+          and every bag has its own Quality Passport.
         </p>
         <p className="mt-3 rounded-full bg-paddy/15 px-4 py-1.5 text-xs font-medium text-husk-dark">
           Demo order: no payment was taken ({order.paymentMethod} selected).
@@ -73,7 +72,7 @@ export function OrderSuccess() {
                   <span>
                     <span className="font-medium">{item.name}</span> × {item.quantity}
                     <span className="block text-xs text-soil/60">
-                      {item.bagSizeKg} kg · grown by {item.farmerName}
+                      {item.bagSizeKg} kg · {item.variety}
                     </span>
                   </span>
                   <span className="tabular-nums">{formatINR(item.price * item.quantity)}</span>
@@ -82,7 +81,7 @@ export function OrderSuccess() {
                   href={`/trace/${item.batchId}`}
                   className="mt-1.5 inline-block text-xs font-semibold text-field underline decoration-paddy underline-offset-4"
                 >
-                  Trace batch {item.batchId} →
+                  Quality Passport for {item.batchId} →
                 </Link>
               </li>
             ))}
@@ -91,10 +90,9 @@ export function OrderSuccess() {
 
         <div className="space-y-6">
           <section className="rounded-2xl bg-white/70 p-6 shadow-card ring-1 ring-husk/10">
-            <h2 className="text-xl font-semibold text-field">Where your money went</h2>
-            <div className="mt-4">
-              <PriceBreakdown breakdown={order.totals} price={order.totals.price} />
-            </div>
+            <h2 className="text-xl font-semibold text-field">Total paid</h2>
+            <p className="mt-3 font-display text-3xl font-semibold">{formatINR(order.totals.price)}</p>
+            <p className="mt-1 text-sm text-soil/70">One honest price for every bag. Delivery free in the demo.</p>
           </section>
           <section className="rounded-2xl bg-white/70 p-6 shadow-card ring-1 ring-husk/10 text-sm">
             <h2 className="text-xl font-semibold text-field">Delivering to</h2>

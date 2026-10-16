@@ -1,6 +1,6 @@
 import { Controller, Get, Injectable, Module, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
-import type { CategoryId, DashboardSummary } from "@kisa/shared";
+import type { DashboardSummary } from "@kisa/shared";
 import { JwtAuthGuard, Roles, RolesGuard } from "../auth/guards";
 import { AuthModule } from "../auth/auth.module";
 import { sellable } from "../catalogue/catalogue.service";
@@ -8,7 +8,7 @@ import { addDays, daysBetween, isoDate, startOfTodayInIndia, todayInIndia, today
 import { PrismaService } from "../prisma/prisma.service";
 
 const LIST_SIZE = 5;
-const EXPIRY_WINDOW_DAYS = 7;
+const BEST_BEFORE_WINDOW_DAYS = 30;
 
 @Injectable()
 export class DashboardService {
@@ -17,21 +17,22 @@ export class DashboardService {
   async summary(): Promise<DashboardSummary> {
     const today = todayInIndia();
 
-    // Active = switched on and from a batch that can still be sold (category active, not expired).
-    const [products, ordersToday, expiring] = await Promise.all([
+    // Active = switched on and from a batch that can still be sold (category and variety active, before best-before).
+    const [products, ordersToday, nearBestBefore] = await Promise.all([
       this.prisma.product.findMany({
         where: { isActive: true, batch: sellable(today) },
-        include: { batch: true },
+        include: { batch: { include: { variety: { select: { name: true } } } } },
         orderBy: { createdAt: "asc" },
       }),
       this.prisma.order.count({ where: { createdAt: { gte: startOfTodayInIndia() } } }),
       this.prisma.batch.findMany({
         where: {
-          category: { isActive: true, perishable: true },
+          category: { isActive: true },
           availableKg: { gt: 0 },
-          expiresOn: { gt: today, lte: addDays(today, EXPIRY_WINDOW_DAYS) },
+          bestBefore: { gt: today, lte: addDays(today, BEST_BEFORE_WINDOW_DAYS) },
         },
-        orderBy: [{ expiresOn: "asc" }, { packedDate: "asc" }],
+        include: { variety: { select: { name: true } } },
+        orderBy: [{ bestBefore: "asc" }, { packedDate: "asc" }],
       }),
     ]);
 
@@ -47,8 +48,7 @@ export class DashboardService {
         const packSizeKg = Math.min(...packs.map((p) => p.bagSizeKg));
         return {
           batchId: batch.id,
-          categoryId: batch.categoryId as CategoryId,
-          variety: batch.variety,
+          variety: batch.variety.name,
           products: packs.map((p) => p.name),
           availableKg: batch.availableKg,
           packSizeKg,
@@ -68,14 +68,13 @@ export class DashboardService {
         items: soldOut.slice(0, LIST_SIZE).map((p) => ({ slug: p.slug, name: p.name, batchId: p.batchId })),
       },
       lowStock: { count: lowStock.length, items: lowStock.slice(0, LIST_SIZE) },
-      expiringSoon: {
-        count: expiring.length,
-        items: expiring.slice(0, LIST_SIZE).map((b) => ({
+      bestBeforeSoon: {
+        count: nearBestBefore.length,
+        items: nearBestBefore.slice(0, LIST_SIZE).map((b) => ({
           batchId: b.id,
-          categoryId: b.categoryId as CategoryId,
-          variety: b.variety,
-          expiresOn: isoDate(b.expiresOn!),
-          daysLeft: daysBetween(today, b.expiresOn!),
+          variety: b.variety.name,
+          bestBefore: isoDate(b.bestBefore),
+          daysLeft: daysBetween(today, b.bestBefore),
           availableKg: b.availableKg,
         })),
       },
@@ -92,7 +91,7 @@ export class DashboardController {
   constructor(private readonly dashboard: DashboardService) {}
 
   @Get("summary")
-  @ApiOperation({ summary: "Counts and short lists for the admin dashboard: stock, low stock, expiring onions, orders today." })
+  @ApiOperation({ summary: "Counts and short lists for the admin dashboard: stock, low stock, best-before within 30 days, orders today." })
   summary(): Promise<DashboardSummary> {
     return this.dashboard.summary();
   }

@@ -33,8 +33,8 @@ export default function BrandPage() {
     <div className="mx-auto max-w-site space-y-6 px-4 py-12 sm:px-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-husk">Brand</p>
-        <h1 className="mt-2 text-3xl font-semibold text-field sm:text-4xl">Kisa — farmer-owned food</h1>
-        <p className="mt-2 text-soil/75">Straight from the farmer. Traceable to the field.</p>
+        <h1 className="mt-2 text-3xl font-semibold text-field sm:text-4xl">Kisa — mill-fresh rice</h1>
+        <p className="mt-2 text-soil/75">Mill-fresh rice, honestly priced.</p>
       </div>
 
       <Row title="Full · light">

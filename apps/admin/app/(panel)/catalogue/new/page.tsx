@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { AdminFarmer, AdminPartner, CategorySummary, Paginated } from "@kisa/shared";
+import type { AdminMill, AdminVariety, CategorySummary, Paginated } from "@kisa/shared";
 import { NewBatchWizard } from "@/components/catalogue/NewBatchWizard";
 import { NoPermission, PageHeader } from "@/components/page";
 import { apiFetch } from "@/lib/api";
@@ -17,15 +17,16 @@ export default async function NewBatchPage() {
       </div>
     );
   }
-  const [categories, farmers, partners] = await Promise.all([
+  const [categories, varieties, mills] = await Promise.all([
     apiFetch<CategorySummary[]>("/categories"),
-    apiFetch<Paginated<AdminFarmer>>("/admin/farmers?status=active&pageSize=100"),
-    apiFetch<Paginated<AdminPartner>>("/admin/partners?status=active&pageSize=100"),
+    apiFetch<Paginated<AdminVariety>>("/admin/varieties?status=active&pageSize=100"),
+    apiFetch<Paginated<AdminMill>>("/admin/mills?status=active&pageSize=100"),
   ]);
+  const rice = categories.find((c) => c.id === "rice") ?? categories[0];
   return (
     <div>
-      <PageHeader title="New batch" description="One farmer's harvest, processed by one partner." back={{ href: "/catalogue", label: "Batches & Products" }} />
-      <NewBatchWizard categories={categories} farmers={farmers.items} partners={partners.items} />
+      <PageHeader title="New batch" description="One lot of rice packed by one mill in Kisa bags." back={{ href: "/catalogue", label: "Batches & Products" }} />
+      <NewBatchWizard category={rice} varieties={varieties.items} mills={mills.items} />
     </div>
   );
 }

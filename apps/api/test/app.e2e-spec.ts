@@ -1,42 +1,56 @@
 // End-to-end tests against the real app setup (helmet, CORS, filter, throttling) and
-// the database in apps/api/.env. They create their own admin and an expired onion
-// batch with unique ids, and delete them afterwards; seeded data is only read.
+// the database in apps/api/.env (the Neon dev branch). They create their own admin and
+// a few rice batches with unique ids, and delete them afterwards; seeded data is only read.
 import "../src/config/load-env"; // first, as in main.ts
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
 import bcrypt from "bcryptjs";
 import request from "supertest";
-import type { AdminLoginResponse, AuthTokens, DashboardSummary, Product, ProductListResponse, TraceResponse } from "@kisa/shared";
+import type { AdminLoginResponse, AuthTokens, DashboardSummary, ProductDetailResponse, ProductListResponse, TraceResponse } from "@kisa/shared";
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/app.setup";
 import { PrismaService } from "../src/prisma/prisma.service";
 
-const seed = JSON.parse(readFileSync(join(__dirname, "../../../packages/db/prisma/seed-data.json"), "utf8"));
-
 const run = randomUUID().slice(0, 8);
 const ADMIN = { email: `e2e-${run}@kisa.test`, password: `Pw-${randomUUID()}`, name: "E2E Admin" };
-const EXPIRED = { batchId: `KS-E2E-${run.toUpperCase()}`, slug: `e2e-expired-onions-${run}` };
-const LOW = { batchId: `KS-E2E-${run.toUpperCase()}-LOW`, slug: `e2e-low-rice-${run}` };
-const SOON = { batchId: `KS-E2E-${run.toUpperCase()}-SOON`, slug: `e2e-soon-onions-${run}` };
+const EXPIRED = { batchId: `KS-E2E-${run.toUpperCase()}-OLD`, slug: `e2e-expired-${run}` };
+const LOW = { batchId: `KS-E2E-${run.toUpperCase()}-LOW`, slug: `e2e-low-${run}` };
+const SOON = { batchId: `KS-E2E-${run.toUpperCase()}-SOON`, slug: `e2e-soon-${run}` };
 const FIXTURE_BATCHES = [EXPIRED.batchId, LOW.batchId, SOON.batchId];
-const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
-/** A DATE value n days after today in India. */
+
+/** A DATE value n days from today in India (negative = past). */
 const todayPlus = (n: number) =>
   new Date(Date.parse(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date())}T00:00:00.000Z`) + n * 86_400_000);
+const quality = { moisturePct: 12.5, brokenPct: 2, foreignMatterPct: 0.1, grainLengthMm: 5, testedBy: "E2E lab", testedOn: "2026-09-01", grade: "A" };
 const product = (slug: string, bagSizeKg: number) => ({
   slug,
   name: `E2E ${slug}`,
   bagSizeKg,
-  farmerSharePaise: 1000 * bagSizeKg,
-  partnerSharePaise: 100 * bagSizeKg,
-  platformFeePaise: 100 * bagSizeKg,
-  pricePaise: 1200 * bagSizeKg,
+  millPricePaise: 5000 * bagSizeKg,
+  kisaMarginPaise: 800 * bagSizeKg,
+  pricePaise: 5800 * bagSizeKg,
   description: "Test only",
   tags: [],
 });
+const batch = (id: string, over: { availableKg?: number; bestBefore: Date; slug: string; bag: number }) => ({
+  id,
+  categoryId: "rice",
+  varietyId: "variety-sona-masoori",
+  millId: "mill-godavari",
+  millingDate: todayPlus(-60),
+  packedDate: todayPlus(-58),
+  bestBefore: over.bestBefore,
+  packedKg: 100,
+  availableKg: over.availableKg ?? 100,
+  attributes: { riceType: "RAW", age: "NEW" },
+  quality,
+  products: { create: product(over.slug, over.bag) },
+});
+
+/** Every key anywhere in a JSON value. */
+const allKeys = (v: unknown): string[] =>
+  Array.isArray(v) ? v.flatMap(allKeys) : v && typeof v === "object" ? Object.entries(v).flatMap(([k, x]) => [k, ...allKeys(x)]) : [];
 
 describe("Kisa API (e2e)", () => {
   let app: NestExpressApplication;
@@ -57,61 +71,12 @@ describe("Kisa API (e2e)", () => {
     });
     adminId = admin.id;
 
-    // An onion batch packed 40 days ago with a 30-day shelf life: in stock, but expired.
-    await prisma.batch.create({
-      data: {
-        id: EXPIRED.batchId,
-        categoryId: "onions",
-        salesModel: "FARMER_OWNED",
-        farmerId: "farmer-shankar",
-        partnerId: "packhouse-lasalgaon",
-        variety: "Nashik Red",
-        harvestDate: daysAgo(60),
-        packedDate: daysAgo(40),
-        inputKg: 100,
-        outputKg: 90,
-        availableKg: 90,
-        shelfLifeDays: 30,
-        expiresOn: daysAgo(10),
-        attributes: { curingDays: 10, gradingDate: daysAgo(45).toISOString().slice(0, 10), sizeGrade: "medium" },
-        quality: { grade: "A" },
-        products: { create: product(EXPIRED.slug, 5) },
-      },
-    });
-
-    const common = { harvestDate: daysAgo(60), inputKg: 100, outputKg: 90, quality: { grade: "A" } } as const;
-    await prisma.batch.create({
-      data: {
-        ...common,
-        id: LOW.batchId,
-        categoryId: "rice",
-        salesModel: "FARMER_OWNED",
-        farmerId: "farmer-ramana",
-        partnerId: "mill-godavari",
-        variety: "Sona Masoori",
-        packedDate: daysAgo(5),
-        availableKg: 15, // one 10 kg pack left
-        attributes: { age: "new", millingDate: daysAgo(6).toISOString().slice(0, 10) },
-        products: { create: product(LOW.slug, 10) },
-      },
-    });
-    await prisma.batch.create({
-      data: {
-        ...common,
-        id: SOON.batchId,
-        categoryId: "onions",
-        salesModel: "FARMER_OWNED",
-        farmerId: "farmer-shankar",
-        partnerId: "packhouse-lasalgaon",
-        variety: "Nashik Red",
-        packedDate: daysAgo(27),
-        availableKg: 50,
-        shelfLifeDays: 30,
-        expiresOn: todayPlus(3), // still sold for 3 more days
-        attributes: { curingDays: 10, gradingDate: daysAgo(30).toISOString().slice(0, 10), sizeGrade: "large" },
-        products: { create: product(SOON.slug, 5) },
-      },
-    });
+    // Past its best-before: in stock, but no longer sold. Its Quality Passport still works.
+    await prisma.batch.create({ data: batch(EXPIRED.batchId, { bestBefore: todayPlus(-1), slug: EXPIRED.slug, bag: 5 }) });
+    // One 10 kg pack left.
+    await prisma.batch.create({ data: batch(LOW.batchId, { availableKg: 15, bestBefore: todayPlus(200), slug: LOW.slug, bag: 10 }) });
+    // Best-before in 10 days.
+    await prisma.batch.create({ data: batch(SOON.batchId, { availableKg: 50, bestBefore: todayPlus(10), slug: SOON.slug, bag: 5 }) });
   });
 
   afterAll(async () => {
@@ -222,77 +187,115 @@ describe("Kisa API (e2e)", () => {
     });
   });
 
+
   describe("catalogue", () => {
-    it("lists products without expired onion batches, onions oldest batch first", async () => {
-      const res = await api().get("/api/v1/products").expect(200);
-      const body: ProductListResponse = res.body;
+    it("lists categories and active varieties", async () => {
+      const cats = (await api().get("/api/v1/categories").expect(200)).body;
+      expect(cats).toEqual([{ id: "rice", name: "Rice", slug: "rice", packSizesKg: [5, 10, 25], shelfLifeDays: 365 }]);
+      const varieties = (await api().get("/api/v1/varieties").expect(200)).body;
+      expect(varieties.map((v: { name: string }) => v.name)).toEqual(["BPT 5204", "HMT", "Sona Masoori"]);
+    });
+
+    it("hides batches past their best-before date, but their Quality Passport still works", async () => {
+      const body: ProductListResponse = (await api().get("/api/v1/products").expect(200)).body;
       const slugs = body.products.map((p) => p.id);
       expect(slugs).not.toContain(EXPIRED.slug);
-      expect(slugs.length).toBeGreaterThanOrEqual(seed.products.length);
-
-      const onions = body.products.filter((p) => p.categoryId === "onions");
-      const batches = await prisma.batch.findMany({ where: { id: { in: onions.map((p) => p.batchId) } } });
-      const packed = new Map(batches.map((b) => [b.id, b.packedDate.getTime()]));
-      const order = onions.map((p) => packed.get(p.batchId)!);
-      expect(order).toEqual([...order].sort((a, b) => a - b));
-
-      // Every referenced farmer and partner is included.
-      const farmerIds = new Set(body.farmers.map((f) => f.id));
-      const partnerIds = new Set(body.partners.map((p) => p.id));
-      expect(body.products.every((p) => farmerIds.has(p.farmerId) && partnerIds.has(p.partnerId))).toBe(true);
-    });
-
-    it("hides the expired product page, but its trace page still works", async () => {
+      expect(slugs).toEqual(expect.arrayContaining([LOW.slug, SOON.slug, "sona-masoori-raw-new-10kg"]));
       await api().get(`/api/v1/products/${EXPIRED.slug}`).expect(404);
-      const trace = await api().get(`/api/v1/trace/${EXPIRED.batchId}`).expect(200);
-      expect(trace.body.batch.id).toBe(EXPIRED.batchId);
+
+      const trace: TraceResponse = (await api().get(`/api/v1/trace/${EXPIRED.batchId}`).expect(200)).body;
+      expect(trace.passport).toMatchObject({ batchId: EXPIRED.batchId, riceType: "RAW", age: "NEW", variety: { name: "Sona Masoori", slug: "sona-masoori" } });
     });
 
-    it("filters by category, sales model and stock", async () => {
-      const onions: ProductListResponse = (await api().get("/api/v1/products?category=onions&salesModel=PARTNER_SOURCED").expect(200)).body;
-      expect(onions.products.length).toBeGreaterThan(0);
-      expect(onions.products.every((p) => p.categoryId === "onions" && p.salesModel === "PARTNER_SOURCED")).toBe(true);
+    it("filters by rice type, variety, age, pack size and stock", async () => {
+      const get = async (q: string) => ((await api().get(`/api/v1/products?${q}`).expect(200)).body as ProductListResponse).products;
 
-      const inStock: ProductListResponse = (await api().get("/api/v1/products?inStock=true").expect(200)).body;
-      expect(inStock.products.every((p) => p.inStock)).toBe(true);
-      const soldOut: ProductListResponse = (await api().get("/api/v1/products?inStock=false").expect(200)).body;
-      expect(soldOut.products.every((p) => !p.inStock)).toBe(true);
+      const steam = await get("riceType=STEAM");
+      expect(steam.length).toBeGreaterThan(0);
+      expect(steam.every((p) => p.riceType === "STEAM")).toBe(true);
+
+      const bpt = await get("variety=bpt-5204");
+      expect(bpt.map((p) => p.id).sort()).toEqual(["bpt-5204-boiled-aged-10kg", "bpt-5204-raw-new-10kg", "bpt-5204-raw-new-25kg"]);
+
+      const aged = await get("age=AGED");
+      expect(aged.length).toBeGreaterThan(0);
+      expect(aged.every((p) => p.age === "AGED")).toBe(true);
+
+      const big = await get("packSize=25");
+      expect(big.length).toBeGreaterThan(0);
+      expect(big.every((p) => p.bagSizeKg === 25)).toBe(true);
+
+      const rawAged = await get("riceType=RAW&age=AGED&variety=sona-masoori");
+      expect(rawAged.map((p) => p.id).sort()).toEqual(["sona-masoori-raw-aged-10kg", "sona-masoori-raw-aged-25kg"]);
+
+      const inStock = await get("inStock=true");
+      expect(inStock.every((p) => p.inStock)).toBe(true);
+      const soldOut = await get("inStock=false");
+      expect(soldOut.map((p) => p.id)).toContain("hmt-steam-aged-10kg");
+      expect(soldOut.every((p) => !p.inStock)).toBe(true);
     });
 
-    it("returns the website's shapes: seeded products and batches equal the mock data", async () => {
-      const body: ProductListResponse = (await api().get("/api/v1/products").expect(200)).body;
-      const bySlug = new Map(body.products.map((p) => [p.id, p]));
-      for (const mock of seed.products as Product[]) expect(bySlug.get(mock.id)).toEqual(mock);
-
-      const mockBatch = seed.batches.find((b: { id: string }) => b.id === "KS-2026-1005-NR");
-      const trace: TraceResponse = (await api().get("/api/v1/trace/KS-2026-1005-NR").expect(200)).body;
-      expect(trace.batch).toEqual(mockBatch);
-      expect(trace.farmer).toEqual(seed.farmers.find((f: { id: string }) => f.id === mockBatch.farmerId));
-      expect(trace.partner).toEqual(seed.partners.find((p: { id: string }) => p.id === mockBatch.partnerId));
-
-      const detail = (await api().get("/api/v1/products/aged-sona-masoori-10kg").expect(200)).body;
-      expect(detail.product.price).toBe(690); // 62 + 4 + 3 per kg, 10 kg
-      expect(detail.farmer.method).toBe("low-chemical");
+    it("shows one total price and the Quality Passport for a product", async () => {
+      const d: ProductDetailResponse = (await api().get("/api/v1/products/sona-masoori-raw-new-10kg").expect(200)).body;
+      expect(d.product).toMatchObject({
+        id: "sona-masoori-raw-new-10kg",
+        categoryId: "rice",
+        variety: { name: "Sona Masoori", slug: "sona-masoori" },
+        riceType: "RAW",
+        age: "NEW",
+        bagSizeKg: 10,
+        price: 650, // mill price 570 + Kisa margin 80; only the total is public
+        inStock: true,
+        batchId: "KS-2026-0904-SM",
+      });
+      expect(d.passport).toEqual({
+        batchId: "KS-2026-0904-SM",
+        categoryId: "rice",
+        variety: { name: "Sona Masoori", slug: "sona-masoori" },
+        riceType: "RAW",
+        age: "NEW",
+        millingDate: "2026-09-02",
+        packedDate: "2026-09-04",
+        bestBefore: "2027-09-04", // packed + 365 days
+        quality: { moisturePct: 13.1, brokenPct: 2.4, foreignMatterPct: 0.1, grainLengthMm: 5.1, testedBy: "Kisa QC lab, Hyderabad", testedOn: "2026-09-05", grade: "A+" },
+      });
     });
 
-    it("lists categories with rupee fees", async () => {
-      const res = await api().get("/api/v1/categories").expect(200);
-      expect(res.body.map((c: { id: string }) => c.id)).toEqual(["rice", "onions"]);
-      expect(res.body[0]).toMatchObject({ partnerType: "MILL", platformFeePerKg: 3, packSizesKg: [5, 10, 25] });
+    it("never exposes mills, farmers or the price split in any public response", async () => {
+      const mills = await prisma.mill.findMany();
+      const paths = [
+        "/categories",
+        "/varieties",
+        "/products",
+        "/products?inStock=false",
+        "/products/sona-masoori-raw-new-10kg",
+        "/products/bpt-5204-boiled-aged-10kg",
+        "/trace/KS-2026-0904-SM",
+        "/trace/KS-2026-0610-HM",
+        `/trace/${EXPIRED.batchId}`,
+      ];
+      for (const path of paths) {
+        const res = await api().get(`/api/v1${path}`).expect(200);
+        // "millingDate" is a quality fact, not mill data; every other mill-ish key is forbidden.
+        const forbiddenKeys = allKeys(res.body).filter((k) => /mill(?!ing)|farmer|margin|partner|cost|share|platform/i.test(k));
+        expect({ path, forbiddenKeys }).toEqual({ path, forbiddenKeys: [] });
+        const text = JSON.stringify(res.body);
+        for (const m of mills) {
+          expect(text).not.toContain(m.id);
+          expect(text).not.toContain(m.name);
+          if (m.contactName) expect(text).not.toContain(m.contactName);
+        }
+      }
     });
 
     it("rejects bad queries and unknown ids without leaking internals", async () => {
-      const bad = await api().get("/api/v1/products?inStock=maybe").expect(400);
-      expect(bad.body.issues[0].path).toBe("inStock");
-      await api().get("/api/v1/products?sort=price").expect(400); // unknown parameter
+      const bad = await api().get("/api/v1/products?riceType=ROASTED").expect(400);
+      expect(bad.body.issues[0].path).toBe("riceType");
+      await api().get("/api/v1/products?farmer=ramana").expect(400); // unknown parameter
+      await api().get("/api/v1/products?packSize=ten").expect(400);
 
       const missing = await api().get("/api/v1/products/no-such-product").expect(404);
-      expect(missing.body).toEqual({
-        statusCode: 404,
-        error: "Not Found",
-        message: "Product not found",
-        requestId: expect.any(String),
-      });
+      expect(missing.body).toEqual({ statusCode: 404, error: "Not Found", message: "Product not found", requestId: expect.any(String) });
       await api().get("/api/v1/trace/KS-0000-NOPE").expect(404);
     });
   });
@@ -302,29 +305,23 @@ describe("Kisa API (e2e)", () => {
       await api().get("/api/v1/admin/dashboard/summary").expect(401);
     });
 
-    it("returns stock counts, low-stock batches and onions expiring within 7 days", async () => {
+    it("returns stock counts, low-stock batches and batches near their best-before date", async () => {
       const res = await api().get("/api/v1/admin/dashboard/summary").set("Authorization", `Bearer ${accessToken}`).expect(200);
       const s: DashboardSummary = res.body;
 
       expect(s.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(s.ordersToday).toBe(0);
       expect(s.products.active).toBe(s.products.inStock + s.products.soldOut);
-      // The expired fixture is not active; the two other fixtures are.
-      const activeInDb = await prisma.product.count({
-        where: { isActive: true, batch: { OR: [{ expiresOn: null }, { expiresOn: { gt: new Date(`${s.today}T00:00:00.000Z`) } }] } },
-      });
-      expect(s.products.active).toBe(activeInDb);
-      expect(s.soldOut.count).toBe(s.products.soldOut);
-      expect(s.soldOut.items.length).toBeLessThanOrEqual(5);
+      expect(s.soldOut.items.map((p) => p.slug)).toContain("hmt-steam-aged-10kg");
 
       const low = s.lowStock.items.find((b) => b.batchId === LOW.batchId);
-      expect(low).toMatchObject({ categoryId: "rice", availableKg: 15, packSizeKg: 10, packsLeft: 1 });
+      expect(low).toMatchObject({ variety: "Sona Masoori", availableKg: 15, packSizeKg: 10, packsLeft: 1 });
       expect(s.lowStock.items.every((b) => b.packsLeft === 1)).toBe(true);
 
-      const soon = s.expiringSoon.items.find((b) => b.batchId === SOON.batchId);
-      expect(soon).toMatchObject({ categoryId: "onions", daysLeft: 3, availableKg: 50 });
-      expect(s.expiringSoon.items.map((b) => b.batchId)).not.toContain(EXPIRED.batchId);
-      expect(s.expiringSoon.items.every((b) => b.daysLeft >= 1 && b.daysLeft <= 7)).toBe(true);
+      const soon = s.bestBeforeSoon.items.find((b) => b.batchId === SOON.batchId);
+      expect(soon).toMatchObject({ variety: "Sona Masoori", daysLeft: 10, availableKg: 50 });
+      expect(s.bestBeforeSoon.items.map((b) => b.batchId)).not.toContain(EXPIRED.batchId);
+      expect(s.bestBeforeSoon.items.every((b) => b.daysLeft >= 1 && b.daysLeft <= 30)).toBe(true);
     });
   });
 });

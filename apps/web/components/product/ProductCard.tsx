@@ -3,15 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
-import type { Farmer, Product } from "@kisa/shared";
+import type { Product } from "@kisa/shared";
 import { formatINR } from "@/lib/format";
 import { flyGrainsToCart } from "@/lib/flyToCart";
+import { ageLabel, typeLabel } from "@/lib/rice";
 import { useCartStore } from "@/store/cart";
 import { Button } from "@/components/ui/Button";
-import { ProducePack } from "@/components/product/ProducePack";
-import { SalesModelBadge } from "@/components/product/SalesModelBadge";
-import { categories, productBadge } from "@/lib/categories";
-import { PriceBreakdown } from "@/components/product/PriceBreakdown";
+import { RiceBag } from "@/components/product/RiceBag";
 
 // Card lifts and its shadow deepens on hover; the bag tilts as if picked up.
 const SHADOW_REST = "0 1px 2px rgba(46,34,25,0.06), 0 8px 24px -12px rgba(46,34,25,0.18)";
@@ -26,12 +24,7 @@ const bagVariants: Variants = {
 };
 const spring = { type: "spring", stiffness: 300, damping: 22 } as const;
 
-interface ProductCardProps {
-  product: Product;
-  farmer: Farmer;
-}
-
-export function ProductCard({ product, farmer }: ProductCardProps) {
+export function ProductCard({ product }: { product: Product }) {
   const addItem = useCartStore((s) => s.addItem);
   // Reduced motion: no hover lift (markup is identical, so no hydration mismatch).
   const reduce = useReducedMotion();
@@ -44,8 +37,7 @@ export function ProductCard({ product, farmer }: ProductCardProps) {
   }, [added]);
 
   const href = `/product/${product.id}`;
-  // Badge (rice: aged / new crop, onions: size grade) comes from the category config.
-  const badge = productBadge(product);
+  const aged = product.age === "AGED";
 
   return (
     <motion.article
@@ -58,50 +50,40 @@ export function ProductCard({ product, farmer }: ProductCardProps) {
     >
       <Link href={href} className="relative grid aspect-[16/10] place-items-center bg-rice-dim sm:aspect-[4/3]" tabIndex={-1} aria-hidden="true">
         <motion.div variants={bagVariants} transition={spring} className="h-[86%]">
-          <ProducePack product={product} farmerName={farmer.name} className="h-full w-auto" />
+          <RiceBag variety={product.variety.name} typeLabel={typeLabel(product.riceType)} weightKg={product.bagSizeKg} batchId={product.batchId} aged={aged} className="h-full w-auto" />
         </motion.div>
-        <span
-          className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold ${
-            badge.tone === "husk" ? "bg-husk text-rice" : "bg-field text-rice"
-          }`}
-        >
-          {badge.label}
+        <span className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold ${aged ? "bg-husk text-rice" : "bg-field text-rice"}`}>
+          {ageLabel(product.age)}
         </span>
-        <SalesModelBadge model={product.salesModel} categoryId={product.categoryId} className="absolute right-3 top-3" />
+        <span className="absolute right-3 top-3 rounded-full bg-rice/90 px-2.5 py-1 text-xs font-semibold text-field ring-1 ring-field/20">
+          {typeLabel(product.riceType)}
+        </span>
       </Link>
 
       <div className="flex flex-1 flex-col p-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-husk">
-          {product.variety} · {product.bagSizeKg} kg
+          {product.variety.name} · {product.bagSizeKg} kg
         </p>
         <h3 className="mt-1 text-xl font-semibold text-field">
           <Link href={href} className="hover:underline hover:decoration-paddy hover:underline-offset-4">
             {product.name}
           </Link>
         </h3>
-        <p className="mt-1 text-sm text-soil/70">
-          {farmer.name}, {farmer.village}
-        </p>
-
-        <div className="mt-4">
-          <PriceBreakdown breakdown={product.priceBreakdown} price={product.price} compact />
-        </div>
+        <p className="mt-2 line-clamp-2 text-sm text-soil/70">{product.description}</p>
 
         <div className="mt-auto flex items-center justify-between gap-3 pt-5">
           <div>
             <span className="font-display text-2xl font-semibold">{formatINR(product.price)}</span>
-            <span className="block text-xs text-soil/60">
-              {formatINR(Math.round(product.price / product.bagSizeKg))}/kg
-            </span>
+            <span className="block text-xs text-soil/60">{formatINR(Math.round(product.price / product.bagSizeKg))}/kg</span>
           </div>
           <Button
             onClick={(e) => {
               addItem(product.id);
-              flyGrainsToCart(e.currentTarget, 6, categories[product.categoryId].particle);
+              flyGrainsToCart(e.currentTarget, 6);
               setAdded(true);
             }}
             disabled={!product.inStock}
-            aria-label={product.inStock ? `Add ${product.name} to cart` : `${product.name} is sold out`}
+            aria-label={product.inStock ? `Add ${product.name}, ${product.bagSizeKg} kg to cart` : `${product.name}, ${product.bagSizeKg} kg is sold out`}
           >
             {!product.inStock ? "Sold out" : added ? "Added ✓" : "Add to cart"}
           </Button>

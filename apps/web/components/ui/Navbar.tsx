@@ -6,14 +6,12 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { selectCartCount, useCartStore } from "@/store/cart";
 import { Logo } from "@kisa/ui/logo";
-import { categoryList } from "@/lib/categories";
 
-// Category links come from lib/categories.ts, so a new crop appears here automatically.
 const links = [
-  { href: "/shop", label: "Shop all", exact: true },
-  ...categoryList.map((c) => ({ href: `/shop/${c.slug}`, label: c.name, exact: false })),
+  { href: "/shop", label: "Shop rice", exact: true },
+  { href: "/shop?type=STEAM", label: "Steam", exact: false },
+  { href: "/shop?type=BOILED", label: "Boiled", exact: false },
   { href: "/#how-it-works", label: "How it works", exact: false },
-  { href: "/#farmers", label: "Our farmers", exact: false },
 ];
 
 function CartIcon() {

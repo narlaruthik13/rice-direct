@@ -173,7 +173,7 @@ export function grainMillTimeline(handle: GrainSpillHandle, duration: number) {
     .fromTo(handle.state, { mill: 0 }, { mill: 1, duration, ease: "none", onUpdate: () => handle.render() });
 }
 
-/** Pour (duration D): rice from the chute into the farmer's sack. */
+/** Pour (duration D): rice from the chute into the Kisa sack. */
 export function grainPourTimeline(handle: GrainSpillHandle, duration: number) {
   return gsap
     .timeline()

@@ -2,13 +2,13 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { AuditService } from "./audit";
 import { BatchesController, BatchesService } from "./batches";
-import { FarmersController, FarmersService } from "./farmers";
-import { PartnersController, PartnersService } from "./partners";
+import { MillsController, MillsService } from "./mills";
+import { VarietiesController, VarietiesService } from "./varieties";
 
-/** Admin management of farmers, partners, batches, products and stock (step 5). */
+/** Admin management of mills, varieties, batches, products and stock. */
 @Module({
   imports: [AuthModule],
-  controllers: [FarmersController, PartnersController, BatchesController],
-  providers: [AuditService, FarmersService, PartnersService, BatchesService],
+  controllers: [MillsController, VarietiesController, BatchesController],
+  providers: [AuditService, MillsService, VarietiesService, BatchesService],
 })
 export class AdminCatalogueModule {}

@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { cartTotals, farmerCount, getCartLines } from "@/lib/cart";
+import { cartTotals, getCartLines } from "@/lib/cart";
 import { formatINR } from "@/lib/format";
 import { useCartHydrated, useCartStore } from "@/store/cart";
-import { ProducePack } from "@/components/product/ProducePack";
-import { SalesModelBadge } from "@/components/product/SalesModelBadge";
-import { PriceBreakdown } from "@/components/product/PriceBreakdown";
+import { RiceBag } from "@/components/product/RiceBag";
+import { typeLabel } from "@/lib/rice";
 import { buttonClasses } from "@/components/ui/Button";
 
 const MAX_QTY = 10;
@@ -29,7 +28,7 @@ export function CartView() {
     return (
       <div className="mt-10 rounded-2xl border border-dashed border-husk/30 p-12 text-center">
         <p className="font-display text-2xl text-field">Your cart is empty</p>
-        <p className="mt-2 text-soil/70">Pick a pack from one of our farmers.</p>
+        <p className="mt-2 text-soil/70">Pick a bag of mill-fresh rice.</p>
         <Link href="/shop" className={buttonClasses("primary", "mt-6")}>
           Shop now
         </Link>
@@ -38,13 +37,12 @@ export function CartView() {
   }
 
   const totals = cartTotals(lines);
-  const farmers = farmerCount(lines);
 
   return (
     <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
       <ul className="space-y-4">
         <AnimatePresence initial={false}>
-          {lines.map(({ product, farmer, quantity }) => (
+          {lines.map(({ product, quantity }) => (
             <motion.li
               key={product.id}
               layout
@@ -58,7 +56,7 @@ export function CartView() {
                 aria-hidden="true"
                 tabIndex={-1}
               >
-                <ProducePack product={product} farmerName={farmer.name} className="h-[88%] w-auto" />
+                <RiceBag variety={product.variety.name} typeLabel={typeLabel(product.riceType)} weightKg={product.bagSizeKg} batchId={product.batchId} aged={product.age === "AGED"} className="h-[88%] w-auto" />
               </Link>
 
               <div className="flex min-w-0 flex-1 flex-col">
@@ -68,12 +66,9 @@ export function CartView() {
                       {product.name}
                     </Link>
                     <p className="text-sm text-soil/70">
-                      {product.bagSizeKg} kg · {farmer.name}, {farmer.village}
+                      {product.bagSizeKg} kg · {product.variety.name}, {typeLabel(product.riceType)}
                     </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <SalesModelBadge model={product.salesModel} categoryId={product.categoryId} />
-                      <span className="font-mono text-[11px] text-soil/50">{product.batchId}</span>
-                    </div>
+                    <span className="mt-1 block font-mono text-[11px] text-soil/50">{product.batchId}</span>
                   </div>
                   <p className="font-semibold tabular-nums">{formatINR(product.price * quantity)}</p>
                 </div>
@@ -117,14 +112,14 @@ export function CartView() {
       <aside className="h-fit rounded-2xl bg-white/70 p-6 shadow-card ring-1 ring-husk/10 lg:sticky lg:top-24">
         <h2 className="text-xl font-semibold text-field">Order summary</h2>
         <p className="mt-1 text-sm text-soil/70">
-          {totals.bags} {totals.bags === 1 ? "pack" : "packs"} from {farmers} {farmers === 1 ? "farmer" : "farmers"}
+          {totals.bags} {totals.bags === 1 ? "pack" : "packs"}
         </p>
 
-        <div className="mt-5">
-          <PriceBreakdown
-            breakdown={totals.split}
-            price={totals.price}
-          />
+        <div className="mt-5 flex justify-between border-t border-husk/15 pt-4 font-semibold">
+          <span>Total</span>
+          <span className="tabular-nums" data-testid="cart-total">
+            {formatINR(totals.price)}
+          </span>
         </div>
 
         <div className="mt-3 flex justify-between text-sm text-soil/70">
@@ -132,9 +127,7 @@ export function CartView() {
           <span>Calculated at checkout</span>
         </div>
 
-        <p className="mt-5 rounded-xl bg-field/10 p-3 text-sm text-field">
-          <span className="font-semibold">{formatINR(totals.split.farmer)}</span> of this order reaches the farmers.
-        </p>
+        <p className="mt-5 rounded-xl bg-field/10 p-3 text-sm text-field">Mill-fresh rice, honestly priced: no middlemen, no hidden fees.</p>
 
         <Link href="/checkout" className={buttonClasses("primary", "mt-5 w-full py-3")}>
           Proceed to checkout

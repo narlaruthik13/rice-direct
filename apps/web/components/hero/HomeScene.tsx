@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { BAG_LABEL } from "@/components/hero/harvest";
 import { BagLabel, ClosedSack, type BagLabelInfo } from "@/components/hero/Sack";
 
-// Final scene "Your Home": soft morning light in a kitchen, the farmer's bag on the
+// Final scene "Your Home": soft morning light in a kitchen, the Kisa bag on the
 // table beside a bowl of steaming rice. The CTA card (Hero's PourCta) sits beside it.
 //
 // The bag and bowl are one SVG in a fixed-aspect box sitting on the table, so the

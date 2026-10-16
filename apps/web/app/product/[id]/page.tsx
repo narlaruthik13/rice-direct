@@ -2,35 +2,31 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getBatch, getFarmer, getPartner, getProduct, products } from "@/data/mock";
-import { attributeValues, categories, PARTNER_TYPES, productBadge } from "@/lib/categories";
-import { SalesModelBadge } from "@/components/product/SalesModelBadge";
+import { getProductDetail, products } from "@/data/mock";
 import { formatDate, formatINR } from "@/lib/format";
-import { ProducePack } from "@/components/product/ProducePack";
-import { PriceBreakdown } from "@/components/product/PriceBreakdown";
+import { ageLabel, cookingNotes, typeLabel } from "@/lib/rice";
 import { AddToCart } from "@/components/product/AddToCart";
-import { BatchStory } from "@/components/product/BatchStory";
-import { QualityReport } from "@/components/product/QualityReport";
-import { FarmerCard, PartnerCard } from "@/components/product/Partners";
 import { ProductCard } from "@/components/product/ProductCard";
+import { QualityReport } from "@/components/product/QualityReport";
+import { RiceBag } from "@/components/product/RiceBag";
 
 interface Props {
   params: { id: string };
 }
 
-// Pre-render every product in every category; unknown ids 404.
+// Pre-render every product; unknown ids 404.
 export const dynamicParams = false;
 export function generateStaticParams() {
   return products.map((p) => ({ id: p.id }));
 }
 
 export function generateMetadata({ params }: Props): Metadata {
-  const product = getProduct(params.id);
-  if (!product) return {};
-  const farmer = getFarmer(product.farmerId);
+  const detail = getProductDetail(params.id);
+  if (!detail) return {};
+  const { product } = detail;
   return {
     title: `${product.name} (${product.bagSizeKg} kg)`,
-    description: `${product.description} Grown by ${farmer?.name}. Batch ${product.batchId}.`,
+    description: `${product.description} ${product.variety.name}, ${typeLabel(product.riceType).toLowerCase()} rice, ${ageLabel(product.age).toLowerCase()}. Batch ${product.batchId}.`,
   };
 }
 
@@ -45,16 +41,19 @@ function Section({ title, eyebrow, children }: { title: string; eyebrow: string;
 }
 
 export default function ProductPage({ params }: Props) {
-  const product = getProduct(params.id);
-  const farmer = product && getFarmer(product.farmerId);
-  const partner = product && getPartner(product.partnerId);
-  const batch = product && getBatch(product.batchId);
-  if (!product || !farmer || !partner || !batch) notFound();
+  const detail = getProductDetail(params.id);
+  if (!detail) notFound();
+  const { product, passport } = detail;
+  const notes = cookingNotes(product.riceType, product.age);
+  const aged = product.age === "AGED";
+  const moreOfVariety = products.filter((p) => p.variety.slug === product.variety.slug && p.id !== product.id).slice(0, 3);
 
-  const category = categories[product.categoryId];
-  const badge = productBadge(product);
-  const attributes = attributeValues(product.categoryId, [product, batch, batch.quality]);
-  const moreFromFarmer = products.filter((p) => p.farmerId === farmer.id && p.id !== product.id);
+  const facts = [
+    { label: "Variety", value: product.variety.name },
+    { label: "Type", value: typeLabel(product.riceType) },
+    { label: "Age", value: ageLabel(product.age) },
+    { label: "Pack size", value: `${product.bagSizeKg} kg` },
+  ];
 
   return (
     <div className="mx-auto max-w-site px-4 py-10 sm:px-6">
@@ -65,8 +64,8 @@ export default function ProductPage({ params }: Props) {
         <span className="mx-2" aria-hidden="true">
           /
         </span>
-        <Link href={`/shop/${category.slug}`} className="inline-block py-2 hover:text-field">
-          {category.name}
+        <Link href={`/shop?type=${product.riceType}`} className="inline-block py-2 hover:text-field">
+          {typeLabel(product.riceType)} rice
         </Link>
         <span className="mx-2" aria-hidden="true">
           /
@@ -74,40 +73,27 @@ export default function ProductPage({ params }: Props) {
         <span className="text-soil">{product.name}</span>
       </nav>
 
-      {/* Top: pack + buy box */}
+      {/* Top: bag + buy box */}
       <div className="mt-6 grid gap-10 lg:grid-cols-2">
         <div className="relative grid aspect-square place-items-center rounded-3xl bg-rice-dim">
-          <ProducePack product={product} farmerName={farmer.name} className="h-[78%] w-auto drop-shadow-xl" />
-          <span
-            className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-semibold text-rice ${
-              badge.tone === "husk" ? "bg-husk" : "bg-field"
-            }`}
-          >
-            {badge.label}
+          <RiceBag
+            variety={product.variety.name}
+            typeLabel={typeLabel(product.riceType)}
+            weightKg={product.bagSizeKg}
+            batchId={product.batchId}
+            aged={aged}
+            className="h-[78%] w-auto drop-shadow-xl"
+          />
+          <span className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-semibold text-rice ${aged ? "bg-husk" : "bg-field"}`}>
+            {ageLabel(product.age)}
           </span>
         </div>
 
         <div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-husk">
-              {product.variety} · {product.bagSizeKg} kg {category.pack.noun}
-            </p>
-            <SalesModelBadge model={product.salesModel} categoryId={product.categoryId} size="md" />
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-husk">
+            {product.variety.name} · {typeLabel(product.riceType)} · {product.bagSizeKg} kg bag
+          </p>
           <h1 className="mt-2 text-4xl font-semibold text-field">{product.name}</h1>
-          <p className="mt-2 text-soil/75">
-            Grown by <span className="font-semibold text-soil">{farmer.name}</span> in {farmer.village}, {farmer.district} ·{" "}
-            {PARTNER_TYPES[partner.type].verb} {partner.name}
-          </p>
-
-          {/* What the sales-model badge means for this specific lot */}
-          <p className="mt-3 rounded-xl bg-white/60 px-4 py-2.5 text-sm text-soil/80 ring-1 ring-husk/10">
-            {product.salesModel === "FARMER_OWNED"
-              ? `${farmer.name} owns ${category.nouns.this} and pays ${partner.name} ₹${partner.processingFeePerKg}/kg to process it.`
-              : `${partner.name} bought this lot from ${farmer.name}${
-                  batch.purchase ? ` on ${formatDate(batch.purchase.date)} at ₹${batch.purchase.pricePerKg}/kg ${category.nouns.raw}` : ""
-                }, then processed and packed it.`}
-          </p>
 
           <ul className="mt-4 flex flex-wrap gap-2">
             {product.tags.map((t) => (
@@ -119,63 +105,69 @@ export default function ProductPage({ params }: Props) {
 
           <p className="mt-5 leading-relaxed text-soil/85">{product.description}</p>
 
-          {/* Category attributes, straight from lib/categories.ts */}
           <dl className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-white/60 p-4 ring-1 ring-husk/10 sm:grid-cols-4">
-            {attributes.map((a) => (
-              <div key={a.key}>
-                <dt className="text-[11px] uppercase tracking-wider text-soil/55">{a.label}</dt>
-                <dd className="text-sm font-semibold">{a.value}</dd>
+            {facts.map((f) => (
+              <div key={f.label}>
+                <dt className="text-[11px] uppercase tracking-wider text-soil/55">{f.label}</dt>
+                <dd className="text-sm font-semibold">{f.value}</dd>
               </div>
             ))}
           </dl>
 
           <div className="mt-6 flex items-baseline gap-3">
-            <span className="font-display text-4xl font-semibold">{formatINR(product.price)}</span>
-            <span className="text-sm text-soil/60">
-              {formatINR(Math.round(product.price / product.bagSizeKg))}/kg · incl. all fees
+            <span className="font-display text-4xl font-semibold" data-testid="product-price">
+              {formatINR(product.price)}
             </span>
+            <span className="text-sm text-soil/60">{formatINR(Math.round(product.price / product.bagSizeKg))}/kg · honest, all-in price</span>
           </div>
 
           <div className="mt-5">
-            <AddToCart productId={product.id} name={product.name} inStock={product.inStock} categoryId={product.categoryId} />
+            <AddToCart productId={product.id} name={product.name} inStock={product.inStock} />
           </div>
 
-          <div className="mt-8 rounded-2xl bg-white/70 p-5 shadow-card ring-1 ring-husk/10">
-            <h2 className="font-sans text-sm font-semibold">Where your {formatINR(product.price)} goes</h2>
-            <div className="mt-4">
-              <PriceBreakdown
-                breakdown={product.priceBreakdown}
-                price={product.price}
-                categoryId={product.categoryId}
-                purchase={batch.purchase}
-              />
-            </div>
-          </div>
+          <p className="mt-6 text-sm text-soil/70">
+            Milled {formatDate(passport.millingDate)} · packed {formatDate(passport.packedDate)} · best before {formatDate(passport.bestBefore)}.{" "}
+            <Link href={`/trace/${product.batchId}`} className="font-semibold text-field underline decoration-paddy underline-offset-4">
+              See the Quality Passport
+            </Link>
+          </p>
         </div>
       </div>
 
-      {/* Story, people, quality */}
-      <div className="mt-14 grid gap-8 lg:grid-cols-[1.2fr_1fr]">
-        <Section eyebrow="Batch story" title={`From field to this ${category.pack.noun}`}>
-          <BatchStory batch={batch} farmer={farmer} partner={partner} product={product} />
+      {/* Cooking and quality */}
+      <div className="mt-14 grid gap-8 lg:grid-cols-2">
+        <Section eyebrow="Cooking notes" title={`Cooking ${aged ? "aged " : ""}${typeLabel(product.riceType).toLowerCase()} rice`}>
+          <dl className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-soil/55">Water</dt>
+              <dd className="mt-1 font-semibold">{notes.water}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-soil/55">Time</dt>
+              <dd className="mt-1 font-semibold">{notes.time}</dd>
+            </div>
+          </dl>
+          <ul className="mt-5 list-disc space-y-2 pl-5 text-soil/85">
+            {notes.tips.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+          <p className="mt-5 text-sm text-soil/75">
+            <span className="font-semibold text-soil">Best for:</span> {notes.bestFor}.
+          </p>
         </Section>
-        <Section eyebrow="Quality report" title="Tested before packing">
-          <QualityReport batch={batch} />
+        <Section eyebrow="Quality summary" title="Checked before packing">
+          <QualityReport quality={passport.quality} />
         </Section>
       </div>
 
-      <div className="mt-8 grid gap-8 md:grid-cols-2">
-        <FarmerCard farmer={farmer} product={product} />
-        <PartnerCard partner={partner} product={product} />
-      </div>
-
-      {moreFromFarmer.length > 0 && (
+      {moreOfVariety.length > 0 && (
         <section className="mt-16">
-          <h2 className="text-2xl font-semibold text-field">More from {farmer.name}</h2>
+          <h2 className="text-2xl font-semibold text-field">More {product.variety.name}</h2>
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {moreFromFarmer.map((p) => (
+            {moreOfVariety.map((p) => (
               <div key={p.id} className="flex">
-                <ProductCard product={p} farmer={farmer} />
+                <ProductCard product={p} />
               </div>
             ))}
           </div>

@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type InputHTMLAttributes } from "react";
 import { useCartHydrated, useCartStore } from "@/store/cart";
-import { cartTotals, farmerCount, getCartLines } from "@/lib/cart";
+import { cartTotals, getCartLines } from "@/lib/cart";
 import { formatINR } from "@/lib/format";
 import { makeOrderId, saveOrder, type Address } from "@/lib/order";
-import { PriceBreakdown } from "@/components/product/PriceBreakdown";
 import { Button, buttonClasses } from "@/components/ui/Button";
 
 const STATES = [
@@ -121,16 +120,16 @@ export function CheckoutView() {
         placedAt: new Date().toISOString(),
         paymentMethod: PAYMENT_METHODS.find((m) => m.value === payment)?.label ?? payment,
         address,
-        items: lines.map(({ product, farmer, quantity }) => ({
+        items: lines.map(({ product, quantity }) => ({
           productId: product.id,
           name: product.name,
           bagSizeKg: product.bagSizeKg,
           quantity,
           price: product.price,
           batchId: product.batchId,
-          farmerName: farmer.name,
+          variety: product.variety.name,
         })),
-        totals: { ...totals.split, price: totals.price },
+        totals: { price: totals.price },
       });
       setStatus("done"); // keeps the "empty cart" view from flashing before navigation
       clearCart();
@@ -145,7 +144,7 @@ export function CheckoutView() {
     return (
       <div className="mt-10 rounded-2xl border border-dashed border-husk/30 p-12 text-center">
         <p className="font-display text-2xl text-field">Your cart is empty</p>
-        <p className="mt-2 text-soil/70">Add a pack from one of our farmers before checking out.</p>
+        <p className="mt-2 text-soil/70">Add a bag of rice before checking out.</p>
         <Link href="/shop" className={buttonClasses("primary", "mt-6")}>
           Shop now
         </Link>
@@ -227,12 +226,12 @@ export function CheckoutView() {
       <aside className="h-fit rounded-2xl bg-white/70 p-6 shadow-card ring-1 ring-husk/10 lg:sticky lg:top-24">
         <h2 className="text-xl font-semibold text-field">Order summary</h2>
         <ul className="mt-4 divide-y divide-husk/10 text-sm">
-          {lines.map(({ product, farmer, quantity }) => (
+          {lines.map(({ product, quantity }) => (
             <li key={product.id} className="flex justify-between gap-3 py-2.5">
               <span>
                 <span className="font-medium">{product.name}</span> × {quantity}
                 <span className="block text-xs text-soil/60">
-                  {product.bagSizeKg} kg · {farmer.name}
+                  {product.bagSizeKg} kg · {product.variety.name}
                 </span>
               </span>
               <span className="tabular-nums">{formatINR(product.price * quantity)}</span>
@@ -240,20 +239,14 @@ export function CheckoutView() {
           ))}
         </ul>
 
-        <div className="mt-4 border-t border-husk/15 pt-4">
-          <PriceBreakdown
-            breakdown={totals.split}
-            price={totals.price}
-          />
-        </div>
         <div className="mt-3 flex justify-between text-sm text-soil/70">
           <span>Delivery</span>
           <span>Free (demo)</span>
         </div>
-
-        <p className="mt-4 text-sm text-soil/70">
-          {formatINR(totals.split.farmer)} goes to {farmerCount(lines) === 1 ? "the farmer" : `${farmerCount(lines)} farmers`}.
-        </p>
+        <div className="mt-4 flex justify-between border-t border-husk/15 pt-4 font-semibold">
+          <span>Total</span>
+          <span className="tabular-nums">{formatINR(totals.price)}</span>
+        </div>
 
         <Button type="submit" className="mt-5 w-full py-3 text-base" disabled={status === "paying"}>
           {status === "paying" ? (

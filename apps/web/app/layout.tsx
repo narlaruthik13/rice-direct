@@ -10,11 +10,11 @@ const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "sw
 
 export const metadata: Metadata = {
   title: {
-    default: "Kisa — Farmer-owned rice & onions",
+    default: "Kisa — mill-fresh rice",
     template: "%s | Kisa",
   },
   description:
-    "Kisa — farmer-owned food. Buy rice and onions directly from the farmers who grew them, with no middlemen. Every pack is traceable to the field, with a transparent price breakdown.",
+    "Mill-fresh rice, honestly priced. Raw, steam and boiled rice packed fresh in Kisa bags, delivered in Hyderabad. Every bag has a Quality Passport.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

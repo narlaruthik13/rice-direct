@@ -5,15 +5,15 @@
 // actions come from the admin's own pages. The API validates and enforces roles.
 import type {
   AdminBatchDetail,
-  AdminFarmer,
-  AdminPartner,
+  AdminMill,
   AdminProduct,
+  AdminVariety,
   BatchCreateInput,
   BatchUpdateInput,
-  FarmerInput,
-  PartnerInput,
+  MillInput,
   ProductInput,
   StockAdjustmentInput,
+  VarietyInput,
 } from "@kisa/shared";
 import { type ApiIssue, ApiRequestError, apiFetch } from "./api";
 
@@ -39,15 +39,15 @@ const send = <T>(path: string, method: "POST" | "PATCH", body?: unknown) =>
 
 const enc = encodeURIComponent;
 
-export const createFarmer = async (input: FarmerInput) => send<AdminFarmer>("/admin/farmers", "POST", input);
-export const updateFarmer = async (id: string, input: Partial<FarmerInput>) => send<AdminFarmer>(`/admin/farmers/${enc(id)}`, "PATCH", input);
-export const setFarmerActive = async (id: string, active: boolean) =>
-  send<AdminFarmer>(`/admin/farmers/${enc(id)}/${active ? "reactivate" : "deactivate"}`, "POST");
+export const createMill = async (input: MillInput) => send<AdminMill>("/admin/mills", "POST", input);
+export const updateMill = async (id: string, input: Partial<MillInput>) => send<AdminMill>(`/admin/mills/${enc(id)}`, "PATCH", input);
+export const setMillActive = async (id: string, active: boolean) =>
+  send<AdminMill>(`/admin/mills/${enc(id)}/${active ? "reactivate" : "deactivate"}`, "POST");
 
-export const createPartner = async (input: PartnerInput) => send<AdminPartner>("/admin/partners", "POST", input);
-export const updatePartner = async (id: string, input: Partial<PartnerInput>) => send<AdminPartner>(`/admin/partners/${enc(id)}`, "PATCH", input);
-export const setPartnerActive = async (id: string, active: boolean) =>
-  send<AdminPartner>(`/admin/partners/${enc(id)}/${active ? "reactivate" : "deactivate"}`, "POST");
+export const createVariety = async (input: VarietyInput) => send<AdminVariety>("/admin/varieties", "POST", input);
+export const renameVariety = async (id: string, name: string) => send<AdminVariety>(`/admin/varieties/${enc(id)}`, "PATCH", { name });
+export const setVarietyActive = async (id: string, active: boolean) =>
+  send<AdminVariety>(`/admin/varieties/${enc(id)}/${active ? "reactivate" : "deactivate"}`, "POST");
 
 export const createBatch = async (input: BatchCreateInput) => send<AdminBatchDetail>("/admin/batches", "POST", input);
 export const updateBatch = async (id: string, input: BatchUpdateInput) => send<AdminBatchDetail>(`/admin/batches/${enc(id)}`, "PATCH", input);

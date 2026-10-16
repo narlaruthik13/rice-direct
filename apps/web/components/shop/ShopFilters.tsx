@@ -1,28 +1,17 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { CategoryFilterDef, Farmer } from "@kisa/shared";
-import { formatINR } from "@/lib/format";
-import { PRICE_STEP, type ShopFilters as Filters, type SoldBy } from "@/lib/shop";
+import type { RiceAge, Variety } from "@kisa/shared";
+import type { ShopFilters as Filters } from "@/lib/shop";
+import { ageLabel } from "@/lib/rice";
 
 interface ShopFiltersProps {
   filters: Filters;
   update: (patch: Partial<Filters>) => void;
   onClear: () => void;
-  varieties: readonly string[];
-  farmers: Farmer[];
-  bounds: { min: number; max: number };
-  /** "Mill" / "Packhouse" (or "Partner" across categories), for the Sold by hint. */
-  partnerName: string;
-  /** Category-specific filters from lib/categories.ts (rice age, onion size, ...). */
-  attrDefs: CategoryFilterDef[];
+  varieties: Variety[];
+  packSizes: number[];
 }
-
-const soldByOptions: { value: SoldBy; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "farmer", label: "Farmer" },
-  { value: "partner", label: "Partner" },
-];
 
 /** A row of mutually exclusive pill buttons (radio group). */
 function Segmented<T extends string>({
@@ -64,8 +53,7 @@ function Segmented<T extends string>({
   );
 }
 
-const toggle = (list: string[], value: string) =>
-  list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -76,9 +64,13 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function ShopFilters({ filters, update, onClear, varieties, farmers, bounds, partnerName, attrDefs }: ShopFiltersProps) {
-  const priceValue = filters.maxPrice ?? bounds.max;
+const AGE_OPTIONS: { value: RiceAge | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "NEW", label: ageLabel("NEW") },
+  { value: "AGED", label: ageLabel("AGED") },
+];
 
+export function ShopFilters({ filters, update, onClear, varieties, packSizes }: ShopFiltersProps) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -88,96 +80,49 @@ export function ShopFilters({ filters, update, onClear, varieties, farmers, boun
         </button>
       </div>
 
-      <Group title="Sold by">
-        <Segmented label="Sold by" options={soldByOptions} value={filters.soldBy} onChange={(soldBy) => update({ soldBy })} />
-        <p className="mt-2 text-xs leading-relaxed text-soil/70">
-          {filters.soldBy === "partner"
-            ? `${partnerName}-Direct: the ${partnerName.toLowerCase()} bought the harvest from the farmer at a published price.`
-            : filters.soldBy === "farmer"
-              ? `Farmer-Owned: the farmer owns the harvest and pays the ${partnerName.toLowerCase()} a fee.`
-              : `Farmer-Owned or ${partnerName}-Direct. Every pack names its farmer.`}
-        </p>
-      </Group>
-
-      {attrDefs.map((def) => (
-        <Group key={def.param} title={def.label}>
-          <Segmented
-            label={def.label}
-            options={[{ value: "all", label: "All" }, ...def.options]}
-            value={filters.attrs[def.param] ?? "all"}
-            onChange={(value) => {
-              const attrs = { ...filters.attrs };
-              if (value === "all") delete attrs[def.param];
-              else attrs[def.param] = value;
-              update({ attrs });
-            }}
-          />
-        </Group>
-      ))}
-
       <Group title="Variety">
         <ul className="space-y-2">
           {varieties.map((v) => (
-            <li key={v}>
+            <li key={v.slug}>
               <label className="flex cursor-pointer items-center gap-2.5 text-sm">
                 <input
                   type="checkbox"
                   className="h-4 w-4 accent-field"
-                  checked={filters.varieties.includes(v)}
-                  onChange={() => update({ varieties: toggle(filters.varieties, v) })}
+                  checked={filters.varieties.includes(v.slug)}
+                  onChange={() => update({ varieties: toggle(filters.varieties, v.slug) })}
                 />
-                {v}
+                {v.name}
               </label>
             </li>
           ))}
         </ul>
       </Group>
 
-      <Group title="Farm">
-        <ul className="space-y-2">
-          {farmers.map((f) => (
-            <li key={f.id}>
-              <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 accent-field"
-                  checked={filters.farms.includes(f.id)}
-                  onChange={() => update({ farms: toggle(filters.farms, f.id) })}
-                />
-                <span>
-                  {f.name}
-                  <span className="block text-xs text-soil/60">
-                    {f.village}, {f.district}
-                  </span>
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
+      <Group title="Age">
+        <Segmented label="Age" options={AGE_OPTIONS} value={filters.age ?? "all"} onChange={(age) => update({ age: age === "all" ? null : age })} />
+        <p className="mt-2 text-xs leading-relaxed text-soil/70">Aged rice is stored 6+ months, so it cooks fluffier and less sticky.</p>
       </Group>
 
-      <Group title="Price per pack">
-        <label htmlFor="max-price" className="mb-2 flex justify-between text-sm">
-          <span>Up to</span>
-          <span className="font-semibold">{filters.maxPrice === null ? "Any price" : formatINR(priceValue)}</span>
-        </label>
-        <input
-          id="max-price"
-          type="range"
-          min={bounds.min}
-          max={bounds.max}
-          step={PRICE_STEP}
-          value={priceValue}
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            update({ maxPrice: v >= bounds.max ? null : v });
-          }}
-          className="w-full accent-field"
-        />
-        <div className="mt-1 flex justify-between text-xs text-soil/50">
-          <span>{formatINR(bounds.min)}</span>
-          <span>{formatINR(bounds.max)}</span>
-        </div>
+      <Group title="Pack size">
+        <ul className="flex flex-wrap gap-2">
+          {packSizes.map((kg) => {
+            const active = filters.packs.includes(kg);
+            return (
+              <li key={kg}>
+                <button
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => update({ packs: toggle(filters.packs, kg) })}
+                  className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                    active ? "border-field bg-field text-rice" : "border-husk/25 bg-white/80 text-soil/80 hover:border-field"
+                  }`}
+                >
+                  {kg} kg
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </Group>
     </div>
   );

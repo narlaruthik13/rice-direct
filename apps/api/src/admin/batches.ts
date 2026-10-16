@@ -20,14 +20,10 @@ import {
   type AdminProduct,
   type BatchCreateInput,
   BatchCreateSchema,
-  type BatchFields,
   batchIssues,
   type BatchListQuery,
   BatchListQuerySchema,
   BatchUpdateSchema,
-  type CategoryId,
-  CROPS,
-  isCategoryId,
   type Paginated,
   priceMatchesParts,
   ProductInputSchema,
@@ -45,35 +41,31 @@ import { PrismaService } from "../prisma/prisma.service";
 import {
   batchSnapshot,
   productSnapshot,
+  riceAttrs,
   stockStatus,
   toAdminProduct,
   toAuditEntry,
   toStockAdjustment,
 } from "./admin-mappers";
 import { AuditService, created, diff } from "./audit";
-import {
-  batchSuffixCandidates,
-  dateValue,
-  IdPipe,
-  isoDate,
-  nothingToUpdate,
-  slugify,
-  toPaise,
-  validationError,
-} from "./common";
+import { batchSuffixCandidates, dateValue, IdPipe, isoDate, nothingToUpdate, slugify, toPaise, validationError } from "./common";
 
 type ProductInputData = z.output<typeof ProductInputSchema>;
 type ProductUpdateData = z.output<typeof ProductUpdateSchema>;
 type BatchUpdateData = z.output<typeof BatchUpdateSchema>;
 type BatchCreateData = z.output<typeof BatchCreateSchema>;
 
-/** Fields that can no longer change once any order includes the batch. */
-const LOCKED_AFTER_ORDERS = ["salesModel", "farmerId", "partnerId", "outputKg"] as const;
-const EXPIRY_WINDOW_DAYS = 7;
+/**
+ * Fields that can no longer change once any order includes the batch: what the customer
+ * bought (variety, rice type and age live in attributes), who is paid (mill), and how
+ * much was packed.
+ */
+const LOCKED_AFTER_ORDERS = ["varietyId", "millId", "packedKg", "attributes"] as const;
+const BEST_BEFORE_WINDOW_DAYS = 30;
 
 const listInclude = {
-  farmer: { select: { id: true, name: true } },
-  partner: { select: { id: true, name: true, type: true } },
+  variety: { select: { id: true, name: true } },
+  mill: { select: { id: true, name: true } },
   products: { select: { bagSizeKg: true, isActive: true } },
 } satisfies Prisma.BatchInclude;
 
@@ -83,19 +75,31 @@ function toListItem(b: ListRow, today: Date): AdminBatchListItem {
   const active = b.products.filter((p) => p.isActive).map((p) => p.bagSizeKg);
   return {
     id: b.id,
-    categoryId: b.categoryId as CategoryId,
-    salesModel: b.salesModel,
+    categoryId: b.categoryId,
     variety: b.variety,
-    farmer: b.farmer,
-    partner: b.partner,
+    mill: b.mill,
+    ...riceAttrs(b),
+    millingDate: isoDate(b.millingDate),
     packedDate: isoDate(b.packedDate),
-    expiresOn: b.expiresOn ? isoDate(b.expiresOn) : null,
-    daysLeft: b.expiresOn ? daysBetween(today, b.expiresOn) : null,
-    outputKg: b.outputKg,
+    bestBefore: isoDate(b.bestBefore),
+    daysLeft: daysBetween(today, b.bestBefore),
+    packedKg: b.packedKg,
     availableKg: b.availableKg,
     stockStatus: stockStatus(b.availableKg, active),
     productCount: b.products.length,
   };
+}
+
+interface MergedBatch {
+  categoryId: string;
+  varietyId: string;
+  millId: string;
+  millingDate: string;
+  packedDate: string;
+  bestBefore: string;
+  packedKg: number;
+  attributes: Record<string, unknown>;
+  quality: Record<string, unknown>;
 }
 
 @Injectable()
@@ -108,33 +112,41 @@ export class BatchesService {
   // ---------- Batches ----------
 
   /**
-   * Filters by category, sales model, farmer, partner and search in the database; stock
-   * status depends on each batch's pack sizes, so it is filtered (and the list paged) here.
-   * Fine for hundreds of batches; move to SQL if the catalogue grows to many thousands.
+   * Filters in the database; stock status depends on each batch's pack sizes, so it is
+   * filtered (and the list paged) here. Fine for hundreds of batches; move to SQL if
+   * the catalogue grows to many thousands.
    */
   async list(q: BatchListQuery): Promise<Paginated<AdminBatchListItem>> {
     const today = todayInIndia();
+    const attributeFilters: Prisma.BatchWhereInput[] = [
+      ...(q.riceType ? [{ attributes: { path: ["riceType"], equals: q.riceType } }] : []),
+      ...(q.age ? [{ attributes: { path: ["age"], equals: q.age } }] : []),
+    ];
     const rows = await this.prisma.batch.findMany({
       where: {
         ...(q.category ? { categoryId: q.category } : {}),
-        ...(q.salesModel ? { salesModel: q.salesModel } : {}),
-        ...(q.farmerId ? { farmerId: q.farmerId } : {}),
-        ...(q.partnerId ? { partnerId: q.partnerId } : {}),
-        ...(q.expiringSoon ? { expiresOn: { gt: today, lte: addDays(today, EXPIRY_WINDOW_DAYS) } } : {}),
+        ...(q.varietyId ? { varietyId: q.varietyId } : {}),
+        ...(q.millId ? { millId: q.millId } : {}),
+        ...(q.expiringSoon ? { availableKg: { gt: 0 }, bestBefore: { gt: today, lte: addDays(today, BEST_BEFORE_WINDOW_DAYS) } } : {}),
         ...(q.search
-          ? { OR: [{ id: { contains: q.search, mode: "insensitive" } }, { variety: { contains: q.search, mode: "insensitive" } }] }
+          ? { OR: [{ id: { contains: q.search, mode: "insensitive" } }, { variety: { name: { contains: q.search, mode: "insensitive" } } }] }
           : {}),
+        ...(attributeFilters.length ? { AND: attributeFilters } : {}),
       },
       include: listInclude,
     });
     let items = rows.map((b) => toListItem(b, today));
     if (q.stock) items = items.filter((b) => b.stockStatus === q.stock);
-    const dir = q.order === "asc" ? 1 : -1;
-    const key = (b: AdminBatchListItem, row: ListRow) =>
-      q.sort === "availableKg" ? b.availableKg : q.sort === "id" ? b.id : q.sort === "createdAt" ? row.createdAt.getTime() : b.packedDate;
     const rowById = new Map(rows.map((r) => [r.id, r]));
+    const key = (b: AdminBatchListItem) =>
+      q.sort === "availableKg" ? b.availableKg
+      : q.sort === "id" ? b.id
+      : q.sort === "createdAt" ? rowById.get(b.id)!.createdAt.getTime()
+      : q.sort === "bestBefore" ? b.bestBefore
+      : b.packedDate;
+    const dir = q.order === "asc" ? 1 : -1;
     items.sort((a, b) => {
-      const ka = key(a, rowById.get(a.id)!), kb = key(b, rowById.get(b.id)!);
+      const ka = key(a), kb = key(b);
       return (ka < kb ? -1 : ka > kb ? 1 : a.id.localeCompare(b.id)) * dir;
     });
     const start = (q.page - 1) * q.pageSize;
@@ -165,16 +177,11 @@ export class BatchesService {
       orderBy: { createdAt: "desc" },
       take: 100,
     });
-    const snap = batchSnapshot(b);
     const hasOrders = b._count.orderItems > 0;
     return {
       ...toListItem(b, today),
-      harvestDate: snap.harvestDate,
-      inputKg: b.inputKg,
-      purchase: snap.purchase,
-      shelfLifeDays: b.shelfLifeDays,
-      attributes: snap.attributes,
-      quality: snap.quality,
+      attributes: (b.attributes ?? {}) as Record<string, unknown>,
+      quality: (b.quality ?? {}) as Record<string, unknown>,
       hasOrders,
       lockedFields: hasOrders ? [...LOCKED_AFTER_ORDERS] : [],
       products: b.products.map((p) => toAdminProduct(p, b)),
@@ -187,17 +194,21 @@ export class BatchesService {
   async create(adminId: string, input: BatchCreateData): Promise<AdminBatchDetail> {
     const category = await this.prisma.category.findUnique({ where: { id: input.categoryId } });
     if (!category || !category.isActive) throw validationError([{ path: "categoryId", message: "Unknown or inactive category" }]);
-    await this.checkPeople(input.categoryId as CategoryId, input.farmerId, input.partnerId);
+    const variety = await this.checkRefs(input.categoryId, input.varietyId, input.millId);
+    const bestBefore = input.bestBefore ?? isoDate(addDays(dateValue(input.packedDate), category.shelfLifeDays));
+    const issues = batchIssues({ ...input, bestBefore });
+    if (issues.length) throw validationError(issues);
     const products = input.products.map((p, i) => this.priceProduct(category, p, `products.${i}`));
+    const merged: MergedBatch = { ...input, bestBefore };
 
-    // The id is printed on packs and must be unique: try the variety code, then others.
+    // The id is printed on bags and must be unique: try the variety code, then others.
     for (let attempt = 0; attempt < 5; attempt++) {
-      const id = await this.nextBatchId(input.packedDate, input.variety);
+      const id = await this.nextBatchId(input.packedDate, variety.name);
       try {
         await this.prisma.$transaction(async (tx) => {
-          const batch = await tx.batch.create({ data: { id, ...this.batchData(input), availableKg: input.outputKg } });
+          const batch = await tx.batch.create({ data: { id, ...this.batchData(merged), availableKg: input.packedKg } });
           await this.audit.record(tx, { adminId, entity: "Batch", entityId: id, action: "CREATE", changes: created(batchSnapshot(batch)) });
-          for (const p of products) await this.insertProduct(tx, adminId, id, input.variety, p);
+          for (const p of products) await this.insertProduct(tx, adminId, id, variety.name, p);
         });
         return this.get(id);
       } catch (e) {
@@ -216,51 +227,46 @@ export class BatchesService {
     const before = batchSnapshot(current);
 
     if (current._count.orderItems > 0) {
-      const changed = LOCKED_AFTER_ORDERS.filter((f) => input[f] !== undefined && input[f] !== before[f]);
+      const changed = LOCKED_AFTER_ORDERS.filter((f) => input[f] !== undefined && JSON.stringify(input[f]) !== JSON.stringify(before[f]));
       if (changed.length) throw new ConflictException(`This batch has orders, so ${changed.join(", ")} can't change`);
     }
 
-    const merged: BatchFields & { farmerId: string; partnerId: string } = {
-      ...before,
-      ...input,
-      purchase: input.purchase !== undefined ? input.purchase : before.purchase,
-      shelfLifeDays: input.shelfLifeDays !== undefined ? input.shelfLifeDays : before.shelfLifeDays,
-    };
+    const merged: MergedBatch = { ...before, ...input };
     const issues = batchIssues(merged);
     if (issues.length) throw validationError(issues);
-    if (input.farmerId || input.partnerId) await this.checkPeople(current.categoryId as CategoryId, merged.farmerId, merged.partnerId);
+    if (input.varietyId || input.millId) await this.checkRefs(current.categoryId, merged.varietyId, merged.millId);
 
-    // Stock already sold or adjusted stays sold: output changes move availableKg by the same amount.
-    const availableKg = current.availableKg + (merged.outputKg - current.outputKg);
+    // Stock already sold or adjusted stays sold: packed-kg changes move availableKg by the same amount.
+    const availableKg = current.availableKg + (merged.packedKg - current.packedKg);
     if (availableKg < 0) {
-      throw new ConflictException(`Output can't go below ${current.outputKg - current.availableKg} kg already sold or written off`);
+      throw new ConflictException(`Packed kg can't go below ${current.packedKg - current.availableKg} kg already sold or written off`);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const after = await tx.batch.update({ where: { id }, data: { ...this.batchData(merged), availableKg } });
       const changes = diff(before, batchSnapshot(after));
       if (Object.keys(changes).length) await this.audit.record(tx, { adminId, entity: "Batch", entityId: id, action: "UPDATE", changes });
-      return id;
-    }).then(() => this.get(id));
+    });
+    return this.get(id);
   }
 
   /**
    * Manual stock correction. One conditional UPDATE, so two adjustments at once can
-   * never push stock below 0 or above the batch's output.
+   * never push stock below 0 or above what was packed.
    */
   async adjustStock(adminId: string, id: string, input: z.output<typeof StockAdjustmentSchema>) {
     return this.prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<{ availableKg: number; outputKg: number }[]>`
+      const rows = await tx.$queryRaw<{ availableKg: number }[]>`
         UPDATE "Batch" SET "availableKg" = "availableKg" + ${input.deltaKg}, "updatedAt" = now()
-        WHERE id = ${id} AND "availableKg" + ${input.deltaKg} >= 0 AND "availableKg" + ${input.deltaKg} <= "outputKg"
-        RETURNING "availableKg", "outputKg"`;
+        WHERE id = ${id} AND "availableKg" + ${input.deltaKg} >= 0 AND "availableKg" + ${input.deltaKg} <= "packedKg"
+        RETURNING "availableKg"`;
       if (rows.length === 0) {
-        const b = await tx.batch.findUnique({ where: { id }, select: { availableKg: true, outputKg: true } });
+        const b = await tx.batch.findUnique({ where: { id }, select: { availableKg: true, packedKg: true } });
         if (!b) throw new NotFoundException("Batch not found");
         throw new ConflictException(
           input.deltaKg < 0
             ? `Only ${b.availableKg} kg in stock, so you can remove at most ${b.availableKg} kg`
-            : `Stock can't exceed the batch output of ${b.outputKg} kg (now ${b.availableKg} kg)`,
+            : `Stock can't exceed the ${b.packedKg} kg packed (now ${b.availableKg} kg)`,
         );
       }
       const after = rows[0].availableKg;
@@ -294,10 +300,10 @@ export class BatchesService {
   // ---------- Products ----------
 
   async addProduct(adminId: string, batchId: string, input: ProductInputData): Promise<AdminProduct> {
-    const batch = await this.prisma.batch.findUnique({ where: { id: batchId }, include: { category: true } });
+    const batch = await this.prisma.batch.findUnique({ where: { id: batchId }, include: { category: true, variety: true } });
     if (!batch) throw new NotFoundException("Batch not found");
     const priced = this.priceProduct(batch.category, input, "");
-    const product = await this.prisma.$transaction((tx) => this.insertProduct(tx, adminId, batchId, batch.variety, priced));
+    const product = await this.prisma.$transaction((tx) => this.insertProduct(tx, adminId, batchId, batch.variety.name, priced));
     return toAdminProduct(product, batch);
   }
 
@@ -307,9 +313,8 @@ export class BatchesService {
     if (!current) throw new NotFoundException("Product not found");
     const before = productSnapshot(current);
     const parts = {
-      farmerShare: input.farmerShare ?? before.farmerShare,
-      partnerShare: input.partnerShare ?? before.partnerShare,
-      platformFee: input.platformFee ?? before.platformFee,
+      millPrice: input.millPrice ?? before.millPrice,
+      kisaMargin: input.kisaMargin ?? before.kisaMargin,
       price: input.price ?? before.price,
     };
     if (!priceMatchesParts(parts)) throw this.priceError("", parts);
@@ -322,9 +327,8 @@ export class BatchesService {
           ...(input.description !== undefined ? { description: input.description } : {}),
           ...(input.tags !== undefined ? { tags: input.tags } : {}),
           ...(input.featured !== undefined ? { featured: input.featured } : {}),
-          farmerSharePaise: toPaise(parts.farmerShare),
-          partnerSharePaise: toPaise(parts.partnerShare),
-          platformFeePaise: toPaise(parts.platformFee),
+          millPricePaise: toPaise(parts.millPrice),
+          kisaMarginPaise: toPaise(parts.kisaMargin),
           pricePaise: toPaise(parts.price),
         },
         include: { _count: { select: { orderItems: true } } },
@@ -354,77 +358,58 @@ export class BatchesService {
 
   // ---------- Helpers ----------
 
-  private batchData(b: BatchFields & { farmerId: string; partnerId: string }) {
+  private batchData(b: MergedBatch) {
     return {
       categoryId: b.categoryId,
-      salesModel: b.salesModel,
-      farmerId: b.farmerId,
-      partnerId: b.partnerId,
-      variety: b.variety,
-      harvestDate: dateValue(b.harvestDate),
+      varietyId: b.varietyId,
+      millId: b.millId,
+      millingDate: dateValue(b.millingDate),
       packedDate: dateValue(b.packedDate),
-      inputKg: b.inputKg,
-      outputKg: b.outputKg,
-      purchaseDate: b.purchase ? dateValue(b.purchase.date) : null,
-      purchasePricePerKgPaise: b.purchase ? toPaise(b.purchase.pricePerKg) : null,
-      shelfLifeDays: b.shelfLifeDays ?? null,
-      expiresOn: b.shelfLifeDays ? addDays(dateValue(b.packedDate), b.shelfLifeDays) : null,
+      bestBefore: dateValue(b.bestBefore),
+      packedKg: b.packedKg,
       attributes: b.attributes as Prisma.InputJsonObject,
       quality: b.quality as Prisma.InputJsonObject,
     };
   }
 
-  /** The farmer and partner must exist and be active, and the partner must process this crop. */
-  private async checkPeople(categoryId: CategoryId, farmerId: string, partnerId: string) {
-    const [farmer, partner] = await Promise.all([
-      this.prisma.farmer.findUnique({ where: { id: farmerId } }),
-      this.prisma.partner.findUnique({ where: { id: partnerId } }),
+  /** The variety must be active and in this category; the mill must be active. */
+  private async checkRefs(categoryId: string, varietyId: string, millId: string) {
+    const [variety, mill] = await Promise.all([
+      this.prisma.variety.findUnique({ where: { id: varietyId } }),
+      this.prisma.mill.findUnique({ where: { id: millId } }),
     ]);
     const issues: { path: string; message: string }[] = [];
-    if (!farmer || !farmer.isActive) issues.push({ path: "farmerId", message: "Choose an active farmer" });
-    if (!partner || !partner.isActive) issues.push({ path: "partnerId", message: "Choose an active partner" });
-    else if (isCategoryId(categoryId) && partner.type !== CROPS[categoryId].partnerType) {
-      issues.push({ path: "partnerId", message: `${categoryId} needs a ${CROPS[categoryId].partnerType.toLowerCase()}` });
-    }
-    if (issues.length) throw validationError(issues);
+    if (!variety || !variety.isActive || variety.categoryId !== categoryId) issues.push({ path: "varietyId", message: "Choose an active variety" });
+    if (!mill || !mill.isActive) issues.push({ path: "millId", message: "Choose an active mill" });
+    if (issues.length || !variety) throw validationError(issues);
+    return variety;
   }
 
-  /** Pack size must be one of the category's; platform fee defaults from the category; price must equal the parts. */
+  /** Pack size must be one of the category's; price must equal mill price + Kisa margin. */
   private priceProduct(category: Category, p: ProductInputData, path: string) {
     const at = (f: string) => (path ? `${path}.${f}` : f);
     if (!category.packSizesKg.includes(p.bagSizeKg)) {
       throw validationError([{ path: at("bagSizeKg"), message: `Pack size must be one of ${category.packSizesKg.join(", ")} kg` }]);
     }
-    const platformFee = p.platformFee ?? (category.platformFeePerKgPaise * p.bagSizeKg) / 100;
-    const parts = { farmerShare: p.farmerShare, partnerShare: p.partnerShare, platformFee, price: p.price };
-    if (!priceMatchesParts(parts)) throw this.priceError(path, parts);
-    return { ...p, platformFee };
+    if (!priceMatchesParts(p)) throw this.priceError(path, p);
+    return p;
   }
 
-  private priceError(path: string, p: { farmerShare: number; partnerShare: number; platformFee: number; price: number }) {
-    const sum = (toPaise(p.farmerShare) + toPaise(p.partnerShare) + toPaise(p.platformFee)) / 100;
-    return validationError([
-      { path: path ? `${path}.price` : "price", message: `Price must equal farmer + partner + platform = ₹${sum} (got ₹${p.price})` },
-    ]);
+  private priceError(path: string, p: { millPrice: number; kisaMargin: number; price: number }) {
+    const sum = (toPaise(p.millPrice) + toPaise(p.kisaMargin)) / 100;
+    return validationError([{ path: path ? `${path}.price` : "price", message: `Price must equal mill price + Kisa margin = ₹${sum} (got ₹${p.price})` }]);
   }
 
-  private async insertProduct(
-    tx: Prisma.TransactionClient,
-    adminId: string,
-    batchId: string,
-    variety: string,
-    p: ProductInputData & { platformFee: number },
-  ) {
-    const slug = await this.uniqueSlug(tx, `${p.name}-${p.bagSizeKg}kg`, variety);
+  private async insertProduct(tx: Prisma.TransactionClient, adminId: string, batchId: string, varietyName: string, p: ProductInputData) {
+    const slug = await this.uniqueSlug(tx, `${p.name}-${p.bagSizeKg}kg`, varietyName);
     const product = await tx.product.create({
       data: {
         slug,
         name: p.name,
         batchId,
         bagSizeKg: p.bagSizeKg,
-        farmerSharePaise: toPaise(p.farmerShare),
-        partnerSharePaise: toPaise(p.partnerShare),
-        platformFeePaise: toPaise(p.platformFee),
+        millPricePaise: toPaise(p.millPrice),
+        kisaMarginPaise: toPaise(p.kisaMargin),
         pricePaise: toPaise(p.price),
         description: p.description,
         tags: p.tags,
@@ -437,22 +422,18 @@ export class BatchesService {
   }
 
   private async uniqueSlug(tx: Prisma.TransactionClient, text: string, fallback: string) {
-    const base = slugify(text) || slugify(fallback) || "product";
-    const taken = new Set(
-      (await tx.product.findMany({ where: { slug: { startsWith: base } }, select: { slug: true } })).map((p) => p.slug),
-    );
+    const base = slugify(text) || slugify(fallback) || "rice";
+    const taken = new Set((await tx.product.findMany({ where: { slug: { startsWith: base } }, select: { slug: true } })).map((p) => p.slug));
     if (!taken.has(base)) return base;
     for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
   }
 
   /** KS-YYYY-MMDD-XX from the packed date and variety, skipping ids already in use. */
-  private async nextBatchId(packedDate: string, variety: string) {
+  private async nextBatchId(packedDate: string, varietyName: string) {
     const [y, m, d] = packedDate.split("-");
     const prefix = `KS-${y}-${m}${d}-`;
-    const taken = new Set(
-      (await this.prisma.batch.findMany({ where: { id: { startsWith: prefix } }, select: { id: true } })).map((b) => b.id),
-    );
-    const free = batchSuffixCandidates(variety).find((s) => !taken.has(prefix + s));
+    const taken = new Set((await this.prisma.batch.findMany({ where: { id: { startsWith: prefix } }, select: { id: true } })).map((b) => b.id));
+    const free = batchSuffixCandidates(varietyName).find((s) => !taken.has(prefix + s));
     if (!free) throw new ConflictException("No batch ids left for this date");
     return prefix + free;
   }
@@ -467,7 +448,7 @@ export class BatchesController {
   constructor(private readonly batches: BatchesService) {}
 
   @Get("batches")
-  @ApiOperation({ summary: "Batches with filters (category, sales model, farmer, partner, stock status, expiring soon)." })
+  @ApiOperation({ summary: "Batches with filters (category, variety, mill, rice type, age, stock status, best-before soon)." })
   list(@Query(new ZodValidationPipe(BatchListQuerySchema)) q: BatchListQuery) {
     return this.batches.list(q);
   }
@@ -488,48 +469,32 @@ export class BatchesController {
 
   @Patch("batches/:id")
   @Roles("ADMIN")
-  @ApiOperation({ summary: "Update a batch. salesModel, farmer, partner and outputKg are locked once it has orders." })
+  @ApiOperation({ summary: "Update a batch. Variety, mill, packed kg and rice type/age are locked once it has orders." })
   @ZodApiBody(BatchUpdateSchema)
-  update(
-    @CurrentAdmin() admin: AuthAdmin,
-    @Param("id", IdPipe) id: string,
-    @Body(new ZodValidationPipe(BatchUpdateSchema)) body: BatchUpdateData,
-  ) {
+  update(@CurrentAdmin() admin: AuthAdmin, @Param("id", IdPipe) id: string, @Body(new ZodValidationPipe(BatchUpdateSchema)) body: BatchUpdateData) {
     return this.batches.update(admin.id, id, body);
   }
 
   @Post("batches/:id/stock")
   @Roles("ADMIN", "STAFF")
-  @ApiOperation({ summary: "Adjust stock by a signed kg amount with a reason. Never below 0 or above the batch output." })
+  @ApiOperation({ summary: "Adjust stock by a signed kg amount with a reason. Never below 0 or above the packed kg." })
   @ZodApiBody(StockAdjustmentSchema)
-  adjustStock(
-    @CurrentAdmin() admin: AuthAdmin,
-    @Param("id", IdPipe) id: string,
-    @Body(new ZodValidationPipe(StockAdjustmentSchema)) body: StockAdjustmentInput,
-  ) {
+  adjustStock(@CurrentAdmin() admin: AuthAdmin, @Param("id", IdPipe) id: string, @Body(new ZodValidationPipe(StockAdjustmentSchema)) body: StockAdjustmentInput) {
     return this.batches.adjustStock(admin.id, id, body as z.output<typeof StockAdjustmentSchema>);
   }
 
   @Post("batches/:id/products")
   @Roles("ADMIN")
-  @ApiOperation({ summary: "Add a pack to a batch. Platform fee defaults from the category; price must equal the parts." })
+  @ApiOperation({ summary: "Add a pack to a batch. Price must equal mill price + Kisa margin." })
   @ZodApiBody(ProductInputSchema)
-  addProduct(
-    @CurrentAdmin() admin: AuthAdmin,
-    @Param("id", IdPipe) id: string,
-    @Body(new ZodValidationPipe(ProductInputSchema)) body: ProductInputData,
-  ) {
+  addProduct(@CurrentAdmin() admin: AuthAdmin, @Param("id", IdPipe) id: string, @Body(new ZodValidationPipe(ProductInputSchema)) body: ProductInputData) {
     return this.batches.addProduct(admin.id, id, body);
   }
 
   @Patch("products/:id")
   @Roles("ADMIN")
   @ZodApiBody(ProductUpdateSchema)
-  updateProduct(
-    @CurrentAdmin() admin: AuthAdmin,
-    @Param("id", IdPipe) id: string,
-    @Body(new ZodValidationPipe(ProductUpdateSchema)) body: ProductUpdateData,
-  ) {
+  updateProduct(@CurrentAdmin() admin: AuthAdmin, @Param("id", IdPipe) id: string, @Body(new ZodValidationPipe(ProductUpdateSchema)) body: ProductUpdateData) {
     return this.batches.updateProduct(admin.id, id, body);
   }
 

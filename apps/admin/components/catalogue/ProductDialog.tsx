@@ -14,53 +14,34 @@ import { Field, Select, Textarea } from "@/components/ui/form-controls";
 import { Input } from "@/components/ui/input";
 import { addProduct, updateProduct } from "@/lib/actions";
 import { handleResult } from "@/lib/form-errors";
-import { rupees } from "@/lib/format";
-import { PricePreview, partLabels, sumParts } from "./bits";
+import { PricePreview, priceOf } from "./bits";
 
 type Values = z.input<typeof ProductInputSchema>;
 
 /** Add a pack to a batch, or edit one (pack size is fixed once created). ADMIN only. */
-export function ProductDialog({
-  batchId,
-  model,
-  category,
-  product,
-  defaultName,
-  suggestPartnerShare,
-}: {
-  batchId: string;
-  model: "FARMER_OWNED" | "PARTNER_SOURCED";
-  category: CategorySummary;
-  product?: AdminProduct;
-  defaultName?: string;
-  /** ₹ per kg suggested for the partner part (processing fee for farmer-owned batches). */
-  suggestPartnerShare?: number;
-}) {
+export function ProductDialog({ batchId, category, product, defaultName }: { batchId: string; category: CategorySummary; product?: AdminProduct; defaultName?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const labels = partLabels(model);
   const defaults = (): Values => {
     if (product) {
-      const { name, bagSizeKg, farmerShare, partnerShare, platformFee, price, description, tags, featured } = product;
-      return { name, bagSizeKg, farmerShare, partnerShare, platformFee, price, description, tags, featured };
+      const { name, bagSizeKg, millPrice, kisaMargin, price, description, tags, featured } = product;
+      return { name, bagSizeKg, millPrice, kisaMargin, price, description, tags, featured };
     }
-    const bag = category.packSizesKg[0];
-    const platformFee = Math.round(category.platformFeePerKg * bag * 100) / 100;
-    const partnerShare = Math.round((suggestPartnerShare ?? 0) * bag * 100) / 100;
-    return { name: defaultName ?? "", bagSizeKg: bag, farmerShare: 0, partnerShare, platformFee, price: partnerShare + platformFee, description: "", tags: [], featured: false };
+    return { name: defaultName ?? "", bagSizeKg: category.packSizesKg[0], millPrice: 0, kisaMargin: 0, price: 0, description: "", tags: [], featured: false };
   };
   const form = useForm<Values, unknown, z.output<typeof ProductInputSchema>>({ resolver: zodResolver(ProductInputSchema), defaultValues: defaults() });
   const { register, handleSubmit, setValue, setError, reset, control, formState } = form;
-  const [farmerShare, partnerShare, platformFee, price] = useWatch({ control, name: ["farmerShare", "partnerShare", "platformFee", "price"] });
+  const [millPrice, kisaMargin, price] = useWatch({ control, name: ["millPrice", "kisaMargin", "price"] });
 
+  // The API requires price = mill price + Kisa margin.
   useEffect(() => {
-    const sum = sumParts(farmerShare, partnerShare, platformFee ?? 0);
+    const sum = priceOf(millPrice, kisaMargin);
     if (price !== sum) setValue("price", sum);
-  }, [farmerShare, partnerShare, platformFee, price, setValue]);
+  }, [millPrice, kisaMargin, price, setValue]);
 
   const onSubmit = async (v: z.output<typeof ProductInputSchema>) => {
     const result = product
-      ? await updateProduct(product.id, { name: v.name, farmerShare: v.farmerShare, partnerShare: v.partnerShare, platformFee: v.platformFee, price: v.price, description: v.description, featured: v.featured })
+      ? await updateProduct(product.id, { name: v.name, millPrice: v.millPrice, kisaMargin: v.kisaMargin, price: v.price, description: v.description, featured: v.featured })
       : await addProduct(batchId, v);
     if (!handleResult(result, setError)) return;
     toast.success(product ? "Pack updated" : `Added ${result.data.name}`);
@@ -71,13 +52,16 @@ export function ProductDialog({
   const errors = formState.errors;
   const bagRegister = register("bagSizeKg", { valueAsNumber: true });
   return (
-    <Dialog open={open} onOpenChange={(o) => {
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
         setOpen(o);
         if (o) reset(defaults());
-      }}>
+      }}
+    >
       <DialogTrigger asChild>
         {product ? (
-          <Button variant="ghost" size="sm" aria-label={`Edit ${product.name}`}>
+          <Button variant="ghost" size="sm" aria-label={`Edit ${product.name} ${product.bagSizeKg} kg`}>
             <Pencil aria-hidden="true" />
           </Button>
         ) : (
@@ -88,8 +72,8 @@ export function ProductDialog({
         )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
-        <DialogTitle>{product ? `Edit ${product.name}` : "Add a pack"}</DialogTitle>
-        <DialogDescription>Prices are per pack. The customer price is the sum of the three parts.</DialogDescription>
+        <DialogTitle>{product ? `Edit ${product.name}, ${product.bagSizeKg} kg` : "Add a pack"}</DialogTitle>
+        <DialogDescription>Prices are per pack. Customers see only the total.</DialogDescription>
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-4 space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field id="name" label="Product name" error={errors.name?.message}>
@@ -102,43 +86,32 @@ export function ProductDialog({
                   <option value={product.bagSizeKg}>{product.bagSizeKg} kg</option>
                 </Select>
               ) : (
-              <Select
-                {...bagRegister}
-                onChange={(ev) => {
-                  bagRegister.onChange(ev);
-                  const kg = Number(ev.target.value);
-                  setValue("platformFee", Math.round(category.platformFeePerKg * kg * 100) / 100);
-                  if (suggestPartnerShare) setValue("partnerShare", Math.round(suggestPartnerShare * kg * 100) / 100);
-                }}
-              >
-                {category.packSizesKg.map((kg) => (
-                  <option key={kg} value={kg}>
-                    {kg} kg
-                  </option>
-                ))}
-              </Select>
+                <Select {...bagRegister}>
+                  {category.packSizesKg.map((kg) => (
+                    <option key={kg} value={kg}>
+                      {kg} kg
+                    </option>
+                  ))}
+                </Select>
               )}
             </Field>
-            <Field id="farmerShare" label={`${labels.farmer} (₹)`} error={errors.farmerShare?.message}>
-              <Input type="number" step="0.01" min="0" {...register("farmerShare", { valueAsNumber: true })} />
+            <Field id="millPrice" label="Mill price (₹ per pack)" error={errors.millPrice?.message}>
+              <Input type="number" step="0.01" min="0" {...register("millPrice", { valueAsNumber: true })} />
             </Field>
-            <Field id="partnerShare" label={`${labels.partner} (₹)`} error={errors.partnerShare?.message}>
-              <Input type="number" step="0.01" min="0" {...register("partnerShare", { valueAsNumber: true })} />
+            <Field id="kisaMargin" label="Kisa margin (₹ per pack)" error={errors.kisaMargin?.message}>
+              <Input type="number" step="0.01" min="0" {...register("kisaMargin", { valueAsNumber: true })} />
             </Field>
-            <Field id="platformFee" label="Platform fee (₹)" error={errors.platformFee?.message} hint={`${rupees(category.platformFeePerKg)}/kg by default`}>
-              <Input type="number" step="0.01" min="0" {...register("platformFee", { valueAsNumber: true })} />
-            </Field>
-            <label className="flex items-center gap-2 self-end pb-2 text-sm font-semibold">
-              <input type="checkbox" className="size-4 accent-field" {...register("featured")} />
-              Feature on the home page
-            </label>
             <Field id="description" label="Description" error={errors.description?.message ?? errors.price?.message} className="sm:col-span-2">
               <Textarea rows={2} {...register("description")} />
             </Field>
+            <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
+              <input type="checkbox" className="size-4 accent-field" {...register("featured")} />
+              Feature on the home page
+            </label>
           </div>
           <input type="hidden" {...register("price", { valueAsNumber: true })} />
           {product && <input type="hidden" {...bagRegister} />}
-          <PricePreview model={model} farmerShare={farmerShare} partnerShare={partnerShare} platformFee={platformFee ?? 0} />
+          <PricePreview millPrice={millPrice} kisaMargin={kisaMargin} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel

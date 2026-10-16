@@ -6,19 +6,20 @@ import type {
   ProductListQuery,
   ProductListResponse,
   TraceResponse,
+  Variety,
 } from "@kisa/shared";
 import { todayInIndia } from "../common/dates";
 import { PrismaService } from "../prisma/prisma.service";
-import { isInStock, toBatch, toCategory, toFarmer, toPartner, toProduct } from "./mappers";
+import { isInStock, toCategory, toPassport, toProduct, toVariety } from "./mappers";
 
-/**
- * A batch can be sold if its category is active and it has not reached expiresOn
- * (perishables stop selling on that date; non-perishables have no expiry).
- */
+/** A batch is on sale while its category and variety are active and it is before its best-before date. */
 export const sellable = (today: Date): Prisma.BatchWhereInput => ({
   category: { isActive: true },
-  OR: [{ expiresOn: null }, { expiresOn: { gt: today } }],
+  variety: { isActive: true },
+  bestBefore: { gt: today },
 });
+
+const withVariety = { variety: { select: { name: true, slug: true } } } as const;
 
 @Injectable()
 export class CatalogueService {
@@ -29,76 +30,53 @@ export class CatalogueService {
     return rows.map(toCategory);
   }
 
+  async varieties(): Promise<Variety[]> {
+    const rows = await this.prisma.variety.findMany({
+      where: { isActive: true, category: { isActive: true } },
+      orderBy: { name: "asc" },
+    });
+    return rows.map(toVariety);
+  }
+
   async products(q: ProductListQuery): Promise<ProductListResponse> {
+    const attributeFilters: Prisma.BatchWhereInput[] = [
+      ...(q.riceType ? [{ attributes: { path: ["riceType"], equals: q.riceType } }] : []),
+      ...(q.age ? [{ attributes: { path: ["age"], equals: q.age } }] : []),
+    ];
     const rows = await this.prisma.product.findMany({
       where: {
         isActive: true,
+        ...(q.packSize ? { bagSizeKg: q.packSize } : {}),
         batch: {
           ...sellable(todayInIndia()),
           ...(q.category ? { categoryId: q.category } : {}),
-          ...(q.salesModel ? { salesModel: q.salesModel } : {}),
+          ...(q.variety ? { variety: { slug: q.variety, isActive: true } } : {}),
+          ...(attributeFilters.length ? { AND: attributeFilters } : {}),
         },
       },
-      include: { batch: { include: { category: true } } },
-      orderBy: { createdAt: "asc" },
+      include: { batch: { include: withVariety } },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
-
-    // Category order, then: perishables oldest batch first (FIFO); others in catalogue order.
-    rows.sort((x, y) => {
-      const cx = x.batch.category, cy = y.batch.category;
-      if (cx.id !== cy.id) return cx.createdAt.getTime() - cy.createdAt.getTime() || cx.id.localeCompare(cy.id);
-      if (cx.perishable) {
-        const byPacked = x.batch.packedDate.getTime() - y.batch.packedDate.getTime();
-        if (byPacked !== 0) return byPacked;
-      }
-      return x.createdAt.getTime() - y.createdAt.getTime();
-    });
-
     const visible = q.inStock === undefined ? rows : rows.filter((p) => isInStock(p, p.batch) === q.inStock);
-    const farmerIds = [...new Set(visible.map((p) => p.batch.farmerId))];
-    const partnerIds = [...new Set(visible.map((p) => p.batch.partnerId))];
-    const [farmers, partners] = await Promise.all([
-      this.prisma.farmer.findMany({ where: { id: { in: farmerIds } }, orderBy: { createdAt: "asc" } }),
-      this.prisma.partner.findMany({ where: { id: { in: partnerIds } }, orderBy: { createdAt: "asc" } }),
-    ]);
-
-    return {
-      products: visible.map((p) => toProduct(p, p.batch)),
-      farmers: farmers.map(toFarmer),
-      partners: partners.map(toPartner),
-    };
+    return { products: visible.map((p) => toProduct(p, p.batch)) };
   }
 
   async product(slug: string): Promise<ProductDetailResponse> {
     const p = await this.prisma.product.findFirst({
       where: { slug, isActive: true, batch: sellable(todayInIndia()) },
-      include: { batch: { include: { farmer: true, partner: true } } },
+      include: { batch: { include: withVariety } },
     });
     if (!p) throw new NotFoundException("Product not found");
-    return {
-      product: toProduct(p, p.batch),
-      batch: toBatch(p.batch),
-      farmer: toFarmer(p.batch.farmer),
-      partner: toPartner(p.batch.partner),
-    };
+    return { product: toProduct(p, p.batch), passport: toPassport(p.batch) };
   }
 
-  /** Trace works for any batch, even expired or sold out: it is what a pack's QR code opens. */
+  /** The Quality Passport works for any batch, even past best-before: it is what a bag's QR code opens. */
   async trace(batchId: string): Promise<TraceResponse> {
     const b = await this.prisma.batch.findUnique({
       where: { id: batchId },
-      include: {
-        farmer: true,
-        partner: true,
-        products: { where: { isActive: true }, orderBy: { createdAt: "asc" } },
-      },
+      include: { ...withVariety, products: { where: { isActive: true }, orderBy: { createdAt: "asc" } } },
     });
     if (!b) throw new NotFoundException("Batch not found");
-    return {
-      batch: toBatch(b),
-      farmer: toFarmer(b.farmer),
-      partner: toPartner(b.partner),
-      products: b.products.map((p) => toProduct(p, b)),
-    };
+    return { passport: toPassport(b), products: b.products.map((p) => toProduct(p, b)) };
   }
 }

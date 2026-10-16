@@ -27,8 +27,8 @@ const sessionsOf = async (email: string) => {
 const waitForAccessTokenToExpire = (page: Page) => page.waitForTimeout(ACCESS_TTL_SECONDS * 1000 + 1500);
 
 test("a protected page redirects to /login when logged out", async ({ page }) => {
-  await page.goto("/farmers");
-  await expect(page).toHaveURL("/login?next=%2Ffarmers");
+  await page.goto("/mills");
+  await expect(page).toHaveURL("/login?next=%2Fmills");
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
@@ -102,7 +102,7 @@ test("stays logged in after the access token expires, with one refresh for paral
   await waitForAccessTokenToExpire(page);
   // Six requests at once, all carrying the same expired access token and refresh token.
   const results = await page.evaluate(async () => {
-    const paths = ["/", "/orders", "/farmers", "/partners", "/delivery", "/settings"];
+    const paths = ["/", "/orders", "/mills", "/varieties", "/delivery", "/settings"];
     const responses = await Promise.all(paths.map((p) => fetch(p, { redirect: "manual" })));
     return responses.map((r) => r.status);
   });
@@ -119,9 +119,9 @@ test("stays logged in after the access token expires, with one refresh for paral
 
   // And again through normal navigation after another expiry.
   await waitForAccessTokenToExpire(page);
-  await page.getByRole("link", { name: "Farmers" }).click();
-  await expect(page.getByRole("heading", { name: "Farmers" })).toBeVisible();
-  await expect(page).toHaveURL("/farmers");
+  await page.getByRole("link", { name: "Mills" }).click();
+  await expect(page.getByRole("heading", { name: "Mills" })).toBeVisible();
+  await expect(page).toHaveURL("/mills");
   const latest = await sessionsOf(EMAIL);
   expect(latest[latest.length - 1].revokedAt).toBeNull();
 });

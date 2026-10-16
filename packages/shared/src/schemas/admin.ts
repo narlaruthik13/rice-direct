@@ -1,9 +1,23 @@
 // Request schemas for the admin endpoints. Used by apps/api for validation and by
 // apps/admin for forms, so both always agree. Money is in rupees (up to 2 decimals).
+// Update schemas have no defaults: an update must never fill in a field that wasn't sent.
 import { z } from "zod";
-import { CROPS, isCategoryId, isoDateSchema } from "../crops";
+import { CATEGORY_RULES, isKnownCategory, isoDateSchema, RICE_AGES, RICE_TYPES } from "../categories";
 
-const text = (min: number, max: number) => z.string().trim().min(min, min === 1 ? "Required" : `At least ${min} characters`).max(max);
+const text = (min: number, max: number) =>
+  z
+    .string()
+    .trim()
+    .min(min, min === 1 ? "Required" : `At least ${min} characters`)
+    .max(max);
+
+/** Rupees with at most 2 decimals (stored as whole paise). */
+export const rupeesSchema = z
+  .number({ error: "Enter an amount" })
+  .min(0, "Can't be negative")
+  .max(1_000_000)
+  .refine((v) => Math.abs(Math.round(v * 100) - v * 100) < 1e-6, "At most 2 decimals");
+
 const optionalText = (max: number) =>
   z
     .string()
@@ -12,13 +26,6 @@ const optionalText = (max: number) =>
     .transform((v) => (v === "" ? null : v))
     .nullable()
     .optional();
-
-/** Rupees with at most 2 decimals (stored as whole paise). */
-export const rupeesSchema = z
-  .number({ error: "Enter an amount" })
-  .min(0, "Can't be negative")
-  .max(1_000_000)
-  .refine((v) => Math.abs(Math.round(v * 100) - v * 100) < 1e-6, "At most 2 decimals");
 
 const phoneSchema = z
   .string()
@@ -39,26 +46,26 @@ const pageParams = {
   order: z.enum(["asc", "desc"]).default("asc"),
 };
 
-export const FarmerListQuerySchema = z
+export const MillListQuerySchema = z
   .object({
     search: z.string().trim().max(80).optional(),
     status: ActiveFilterSchema,
-    sort: z.enum(["name", "district", "createdAt"]).default("name"),
+    sort: z.enum(["name", "town", "createdAt"]).default("name"),
     ...pageParams,
   })
   .strict();
-export type FarmerListQuery = z.infer<typeof FarmerListQuerySchema>;
+export type MillListQuery = z.infer<typeof MillListQuerySchema>;
 
-export const PartnerListQuerySchema = z
+export const VarietyListQuerySchema = z
   .object({
     search: z.string().trim().max(80).optional(),
     status: ActiveFilterSchema,
-    type: z.enum(["MILL", "PACKHOUSE"]).optional(),
-    sort: z.enum(["name", "town", "processingFeePerKg", "createdAt"]).default("name"),
+    category: z.string().regex(/^[a-z0-9-]{1,40}$/).optional(),
+    sort: z.enum(["name", "createdAt"]).default("name"),
     ...pageParams,
   })
   .strict();
-export type PartnerListQuery = z.infer<typeof PartnerListQuerySchema>;
+export type VarietyListQuery = z.infer<typeof VarietyListQuerySchema>;
 
 export const StockStatusSchema = z.enum(["in_stock", "low", "sold_out"]);
 export type StockStatus = z.infer<typeof StockStatusSchema>;
@@ -67,57 +74,57 @@ export const BatchListQuerySchema = z
   .object({
     search: z.string().trim().max(80).optional(),
     category: z.string().regex(/^[a-z0-9-]{1,40}$/).optional(),
-    salesModel: z.enum(["FARMER_OWNED", "PARTNER_SOURCED"]).optional(),
-    farmerId: z.string().max(40).optional(),
-    partnerId: z.string().max(40).optional(),
+    varietyId: z.string().max(40).optional(),
+    millId: z.string().max(40).optional(),
+    riceType: z.enum(RICE_TYPES).optional(),
+    age: z.enum(RICE_AGES).optional(),
     stock: StockStatusSchema.optional(),
+    /** Best-before within 30 days (and still on sale). */
     expiringSoon: z
       .enum(["true", "false"])
       .transform((v) => v === "true")
       .optional(),
-    sort: z.enum(["packedDate", "createdAt", "availableKg", "id"]).default("packedDate"),
+    sort: z.enum(["packedDate", "createdAt", "availableKg", "bestBefore", "id"]).default("packedDate"),
     ...pageParams,
     order: z.enum(["asc", "desc"]).default("desc"),
   })
   .strict();
 export type BatchListQuery = z.infer<typeof BatchListQuerySchema>;
 
-// ---------- Farmers and partners ----------
+// ---------- Mills ----------
 
-export const FarmerInputSchema = z.object({
-  name: text(2, 80),
-  phone: phoneSchema,
-  village: text(2, 80),
-  district: text(2, 80),
-  state: text(2, 80),
-  acres: z.number({ error: "Enter the farm size" }).positive("Must be more than 0").max(10_000),
-  yearsFarming: z.number({ error: "Enter years farming" }).int().min(0).max(80),
-  method: z.enum(["conventional", "low-chemical", "natural"]),
-  story: text(20, 2000),
-  photoUrl: z.url().max(500).or(z.literal("")).transform((v) => (v === "" ? null : v)).nullable().optional(),
-});
-export type FarmerInput = z.input<typeof FarmerInputSchema>;
-export const FarmerUpdateSchema = FarmerInputSchema.partial();
-
-// Base fields without defaults: an update must never fill in a field the admin didn't send.
-const partnerFields = {
-  type: z.enum(["MILL", "PACKHOUSE"]),
+const millFields = {
   name: text(2, 100),
+  contactName: optionalText(80),
   phone: phoneSchema,
   town: text(2, 80),
   district: text(2, 80),
   state: text(2, 80),
-  processingFeePerKg: rupeesSchema,
+  fssaiLicense: z
+    .string()
+    .trim()
+    .regex(/^\d{14}$/, "14-digit FSSAI licence number")
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? null : v))
+    .nullable()
+    .optional(),
   certifications: z.array(text(2, 60)).max(10),
-  established: z
-    .number({ error: "Enter the year" })
-    .int()
-    .min(1900)
-    .max(new Date().getFullYear()),
 };
-export const PartnerInputSchema = z.object({ ...partnerFields, certifications: partnerFields.certifications.default([]) });
-export type PartnerInput = z.input<typeof PartnerInputSchema>;
-export const PartnerUpdateSchema = z.object(partnerFields).partial();
+export const MillInputSchema = z.object({ ...millFields, certifications: millFields.certifications.default([]) }).strict();
+export type MillInput = z.input<typeof MillInputSchema>;
+export const MillUpdateSchema = z.object(millFields).partial().strict();
+
+// ---------- Varieties ----------
+
+export const VarietyInputSchema = z
+  .object({
+    categoryId: z.string().regex(/^[a-z0-9-]{1,40}$/, "Choose a category"),
+    name: text(2, 60),
+  })
+  .strict();
+export type VarietyInput = z.input<typeof VarietyInputSchema>;
+/** The slug stays fixed after creation (it is used in website links and filters). */
+export const VarietyUpdateSchema = z.object({ name: text(2, 60) }).partial().strict();
 
 // ---------- Products ----------
 
@@ -125,13 +132,11 @@ export const ProductInputSchema = z
   .object({
     name: text(2, 100),
     bagSizeKg: z.number().int().positive(),
-    /** Per pack. FARMER_OWNED: farmer share; PARTNER_SOURCED: paid to farmer. */
-    farmerShare: rupeesSchema,
-    /** Per pack. FARMER_OWNED: processing fee; PARTNER_SOURCED: partner margin. */
-    partnerShare: rupeesSchema,
-    /** Per pack. Defaults to the category's per-kg platform fee × pack size. */
-    platformFee: rupeesSchema.optional(),
-    /** Must equal farmerShare + partnerShare + platformFee. */
+    /** Per pack, paid to the mill. Never shown publicly. */
+    millPrice: rupeesSchema,
+    /** Per pack, Kisa's margin. Never shown publicly. */
+    kisaMargin: rupeesSchema,
+    /** Must equal millPrice + kisaMargin. */
     price: rupeesSchema,
     description: text(10, 1000),
     tags: z.array(text(1, 40)).max(8).default([]),
@@ -143,9 +148,8 @@ export type ProductInput = z.input<typeof ProductInputSchema>;
 export const ProductUpdateSchema = z
   .object({
     name: text(2, 100),
-    farmerShare: rupeesSchema,
-    partnerShare: rupeesSchema,
-    platformFee: rupeesSchema,
+    millPrice: rupeesSchema,
+    kisaMargin: rupeesSchema,
     price: rupeesSchema,
     description: text(10, 1000),
     tags: z.array(text(1, 40)).max(8),
@@ -154,68 +158,48 @@ export const ProductUpdateSchema = z
   .partial()
   .strict();
 
-/** Price = farmer + partner + platform, compared in whole paise. */
-export const priceMatchesParts = (p: { farmerShare: number; partnerShare: number; platformFee: number; price: number }) =>
-  Math.round(p.price * 100) === Math.round(p.farmerShare * 100) + Math.round(p.partnerShare * 100) + Math.round(p.platformFee * 100);
+/** Price = mill price + Kisa margin, compared in whole paise. */
+export const priceMatchesParts = (p: { millPrice: number; kisaMargin: number; price: number }) =>
+  Math.round(p.price * 100) === Math.round(p.millPrice * 100) + Math.round(p.kisaMargin * 100);
 
 // ---------- Batches ----------
 
-const purchaseSchema = z.object({ date: isoDateSchema, pricePerKg: rupeesSchema.refine((v) => v > 0, "Must be more than 0") });
-
 const batchFields = {
-  salesModel: z.enum(["FARMER_OWNED", "PARTNER_SOURCED"]),
-  farmerId: z.string().min(1, "Choose a farmer").max(40),
-  partnerId: z.string().min(1, "Choose a partner").max(40),
-  variety: text(2, 60),
-  harvestDate: isoDateSchema,
+  varietyId: z.string().min(1, "Choose a variety").max(40),
+  millId: z.string().min(1, "Choose a mill").max(40),
+  millingDate: isoDateSchema,
   packedDate: isoDateSchema,
-  inputKg: z.number().int().positive("Must be more than 0").max(10_000_000),
-  outputKg: z.number().int().positive("Must be more than 0").max(10_000_000),
-  /** PARTNER_SOURCED only (required there); FARMER_OWNED must not have one. */
-  purchase: purchaseSchema.nullable().optional(),
-  /** Perishable crops only (required there). */
-  shelfLifeDays: z.number().int().min(1).max(365).nullable().optional(),
+  /** Defaults to packedDate + the category's shelf life. */
+  bestBefore: isoDateSchema,
+  packedKg: z.number({ error: "Enter the kg packed" }).int().positive("Must be more than 0").max(10_000_000),
+  /** Category-specific, e.g. rice { riceType, age }. */
   attributes: z.record(z.string(), z.unknown()),
   quality: z.record(z.string(), z.unknown()),
 };
 
 export type BatchFields = {
   categoryId: string;
-  salesModel: "FARMER_OWNED" | "PARTNER_SOURCED";
-  variety: string;
-  harvestDate: string;
+  millingDate: string;
   packedDate: string;
-  inputKg: number;
-  outputKg: number;
-  purchase?: { date: string; pricePerKg: number } | null;
-  shelfLifeDays?: number | null;
+  bestBefore?: string | null;
   attributes: Record<string, unknown>;
   quality: Record<string, unknown>;
 };
 
 /**
- * Cross-field rules for a whole batch (create, or current values merged with an
- * update): the crop's attributes, quality and varieties; the Model A/B purchase rule;
- * output <= input; packed on or after harvest; shelf life for perishables.
+ * Cross-field rules for a whole batch (create, or current values merged with an update):
+ * the category's attribute and quality schemas, and packed on or after milling, and
+ * best-before after packing.
  */
 export function batchIssues(b: BatchFields): { path: string; message: string }[] {
+  if (!isKnownCategory(b.categoryId)) return [{ path: "categoryId", message: "Unknown category" }];
+  const rules = CATEGORY_RULES[b.categoryId];
   const issues: { path: string; message: string }[] = [];
-  if (!isCategoryId(b.categoryId)) return [{ path: "categoryId", message: "Unknown category" }];
-  const crop = CROPS[b.categoryId];
-  if (!crop.varieties.includes(b.variety)) issues.push({ path: "variety", message: `Choose a ${b.categoryId} variety` });
-  if (b.outputKg > b.inputKg) issues.push({ path: "outputKg", message: "Output can't be more than input" });
-  if (b.packedDate < b.harvestDate) issues.push({ path: "packedDate", message: "Packed date can't be before harvest" });
-  if (b.salesModel === "PARTNER_SOURCED" && !b.purchase) {
-    issues.push({ path: "purchase", message: "A partner-sourced batch needs the purchase date and price paid to the farmer" });
-  }
-  if (b.salesModel === "FARMER_OWNED" && b.purchase) {
-    issues.push({ path: "purchase", message: "A farmer-owned batch has no purchase" });
-  }
-  if (crop.needsShelfLife && !b.shelfLifeDays) issues.push({ path: "shelfLifeDays", message: "Perishable: enter the shelf life" });
-  if (!crop.needsShelfLife && b.shelfLifeDays) issues.push({ path: "shelfLifeDays", message: "Only perishable crops have a shelf life" });
-  for (const [key, schema] of [["attributes", crop.attributes], ["quality", crop.quality]] as const) {
+  if (b.packedDate < b.millingDate) issues.push({ path: "packedDate", message: "Packed date can't be before milling" });
+  if (b.bestBefore && b.bestBefore <= b.packedDate) issues.push({ path: "bestBefore", message: "Best-before must be after the packed date" });
+  for (const [key, schema] of [["attributes", rules.attributes], ["quality", rules.quality]] as const) {
     const r = schema.safeParse(b[key]);
-    if (!r.success) for (const i of r.error.issues) issues.push({ path: [key, ...i.path].join("."), message: i.message });
+    if (!r.success) for (const i of r.error.issues) issues.push({ path: [key, ...i.path].join(".") || key, message: i.message });
   }
   return issues;
 }
@@ -224,6 +208,7 @@ export const BatchCreateSchema = z
   .object({
     categoryId: z.string().min(1),
     ...batchFields,
+    bestBefore: batchFields.bestBefore.optional(),
     products: z.array(ProductInputSchema).max(10).default([]),
   })
   .strict()

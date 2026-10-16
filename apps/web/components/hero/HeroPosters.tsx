@@ -34,15 +34,15 @@ export function HeroPosters() {
   return (
     <div className="px-4 py-10 sm:px-6 sm:py-14">
       <div className="mx-auto max-w-site text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-husk">Kisa — farmer-owned food</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-husk">Kisa — mill-fresh rice</p>
         <h1 className="mx-auto mt-3 max-w-3xl text-balance text-4xl font-semibold leading-tight text-field-dark sm:text-5xl">
           From paddy field to your plate
         </h1>
-        <p className="mx-auto mt-4 max-w-md text-lg text-soil/85">Straight from the farmer. Traceable to the field.</p>
+        <p className="mx-auto mt-4 max-w-md text-lg text-soil/85">Mill-fresh rice, honestly priced.</p>
       </div>
 
       <ol className="mx-auto mt-10 grid max-w-site gap-6 sm:grid-cols-2">
-        {/* 1. Monsoon: rain on the wet field, the farmer transplanting seedlings row by row */}
+        {/* 1. Monsoon: rain on the wet field, seedlings transplanted row by row */}
         <Poster copy={SCENE_COPY.monsoon}>
           <SeasonSky season={0.2} className="absolute inset-0 h-full w-full" />
           <PaddyField sky={false} state={{ plant: 0.66 }} className="absolute inset-0 h-full w-full" />

@@ -21,7 +21,7 @@ interface Values {
 }
 
 /** Manual stock correction with a required reason. ADMIN and STAFF. */
-export function StockDialog({ batchId, availableKg, outputKg }: { batchId: string; availableKg: number; outputKg: number }) {
+export function StockDialog({ batchId, availableKg, packedKg }: { batchId: string; availableKg: number; packedKg: number }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, reset, setError, control, formState } = useForm<Values>({
@@ -63,7 +63,7 @@ export function StockDialog({ batchId, availableKg, outputKg }: { batchId: strin
       <DialogContent>
         <DialogTitle>Adjust stock</DialogTitle>
         <DialogDescription>
-          Now {availableKg} kg of {outputKg} kg. Orders reduce stock on their own; use this for damage, recounts and returns.
+          Now {availableKg} kg of {packedKg} kg packed. Orders reduce stock on their own; use this for damage, recounts and returns.
         </DialogDescription>
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-4 space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -89,8 +89,8 @@ export function StockDialog({ batchId, availableKg, outputKg }: { batchId: strin
           <Field id="note" label="Note" error={errors.note?.message} hint="Required for “Other”.">
             <Textarea rows={2} {...register("note")} />
           </Field>
-          <p className={after < 0 || after > outputKg ? "text-sm font-semibold text-destructive" : "text-sm text-muted-foreground"}>
-            Stock after: {after} kg {after < 0 ? "(can't go below 0)" : after > outputKg ? `(can't exceed ${outputKg} kg)` : ""}
+          <p className={after < 0 || after > packedKg ? "text-sm font-semibold text-destructive" : "text-sm text-muted-foreground"}>
+            Stock after: {after} kg {after < 0 ? "(can't go below 0)" : after > packedKg ? `(can't exceed ${packedKg} kg)` : ""}
           </p>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

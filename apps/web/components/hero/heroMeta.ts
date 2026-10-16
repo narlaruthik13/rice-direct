@@ -35,12 +35,12 @@ export const SCENE_COPY = {
   monsoon: {
     step: "01",
     title: "Monsoon",
-    text: "The first rains soften the soil. A seed splits and sends up a shoot, then the farmer transplants the seedlings by hand, row by row.",
+    text: "The first rains soften the soil. A seed splits and sends up a shoot, and the seedlings are transplanted by hand, row by row.",
   },
   grow: {
     step: "02",
     title: "Grow",
-    text: "Seedlings rise from Godavari delta soil, tended by the farmer for four months.",
+    text: "Seedlings rise from Godavari delta soil and grow for four months.",
   },
   ripen: {
     step: "03",
@@ -50,21 +50,21 @@ export const SCENE_COPY = {
   harvest: {
     step: "04",
     title: "Harvest",
-    text: "A combine cuts and threshes the ripe crop in one pass, then blows golden paddy, still in its husk, into the farmer's trolley.",
+    text: "A combine cuts and threshes the ripe crop in one pass, then blows golden paddy, still in its husk, into the trolley.",
   },
   journey: {
     step: "05",
     title: "Journey",
-    text: "At dusk the farmer hauls the paddy down the village road to the partner mill. No traders, no warehouses in between.",
+    text: "At dusk the paddy goes down the village road to the mill. No traders, no warehouses in between.",
   },
   mill: {
     step: "06",
     title: "Mill",
-    text: "Under warm lamps at the partner mill, rubber rollers crack each husk in two. Out comes white rice, and it is still the farmer's own.",
+    text: "Under warm lamps at the mill, rubber rollers crack each husk in two. Out comes white rice, fresh from the mill.",
   },
   pour: {
     step: "07",
-    title: "Packed in the farmer's name",
-    text: "Stitched shut and labelled with the farmer's name, plus a QR code that traces this batch back to the field.",
+    title: "Packed in a Kisa bag",
+    text: "Stitched shut and labelled Kisa, with the variety and a QR code that opens this batch's Quality Passport.",
   },
 } satisfies Record<string, SceneCopy>;

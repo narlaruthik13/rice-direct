@@ -1,21 +1,24 @@
 import { useId } from "react";
 
-// Jute-style rice sack with a printed label (farmer, variety, weight, batch).
+// Jute-style rice sack with the printed Kisa label (variety, type, weight, batch).
 // RiceBagShape is a bare <g> (bag drawn in a 240x300 box) so other packs can
 // embed it; RiceBag wraps it in its own <svg>.
 
 interface RiceBagProps {
-  farmerName: string;
   variety: string;
+  /** e.g. "Raw", "Steam", "Boiled". */
+  typeLabel: string;
   weightKg: number;
   batchId: string;
   aged?: boolean;
 }
 
-export function RiceBagShape({ farmerName, variety, weightKg, batchId, aged = false }: RiceBagProps) {
+export function RiceBagShape({ variety, typeLabel, weightKg, batchId, aged = false }: RiceBagProps) {
   const id = useId().replace(/:/g, "");
   const accent = aged ? "#8B5E3C" : "#2F4A2A";
-  const nameLines = farmerName.split(" ");
+  // The variety is the label's headline: one line, or two for long names.
+  const words = variety.split(" ");
+  const nameLines = variety.length > 12 && words.length > 1 ? [words.slice(0, -1).join(" "), words[words.length - 1]] : [variety];
   const nameY = 152;
   const afterName = nameY + (nameLines.length - 1) * 17;
 
@@ -73,8 +76,8 @@ export function RiceBagShape({ farmerName, variety, weightKg, batchId, aged = fa
             {line}
           </text>
         ))}
-        <text x="120" y={afterName + 18} textAnchor="middle" fontSize="9" fill="#5A4636">
-          {variety}
+        <text x="120" y={afterName + 18} textAnchor="middle" fontSize="9" letterSpacing="1" fill="#5A4636">
+          {typeLabel.toUpperCase()}
         </text>
         <text x="120" y={afterName + 42} textAnchor="middle" fontSize="18" fontWeight="800" fill={accent}>
           {weightKg} kg
@@ -93,7 +96,7 @@ export function RiceBag({ className = "", ...props }: RiceBagProps & { className
       viewBox="20 18 200 288"
       className={className}
       role="img"
-      aria-label={`${props.weightKg} kg bag of ${props.variety} from ${props.farmerName}`}
+      aria-label={`${props.weightKg} kg Kisa bag of ${props.variety}, ${props.typeLabel.toLowerCase()} rice`}
     >
       <RiceBagShape {...props} />
     </svg>

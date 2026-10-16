@@ -1,43 +1,34 @@
-// Database rows → admin response shapes (@kisa/shared). Rupees, YYYY-MM-DD dates,
-// and the website's spellings, like the public catalogue.
-import type {
-  AdminUser,
-  Batch,
-  Farmer,
-  Partner,
-  Product,
-  StockAdjustment,
-  AdminAuditLog,
-} from "@kisa/db";
-import type {
-  AdminFarmer,
-  AdminPartner,
-  AdminProduct,
-  AuditEntry,
-  CategoryId,
-  StockAdjustmentView,
-  StockStatusValue,
-} from "@kisa/shared";
-import { toFarmer, toPartner } from "../catalogue/mappers";
+// Database rows → ADMIN response shapes (@kisa/shared). Admin views include the mill and
+// the mill price / Kisa margin split; public views (../catalogue/mappers.ts) never do.
+import type { AdminAuditLog, AdminUser, Batch, Mill, Product, StockAdjustment, Variety } from "@kisa/db";
+import type { AdminMill, AdminProduct, AdminVariety, AuditEntry, RiceAge, RiceType, StockAdjustmentView, StockStatusValue } from "@kisa/shared";
 import { isoDate, toRupees } from "./common";
 
-export const toAdminFarmer = (f: Farmer & { _count: { batches: number } }): AdminFarmer => ({
-  ...toFarmer(f),
-  phone: f.phone,
-  photoUrl: f.photoUrl,
-  isActive: f.isActive,
-  batchCount: f._count.batches,
-  createdAt: f.createdAt.toISOString(),
-  updatedAt: f.updatedAt.toISOString(),
+export const toAdminMill = (m: Mill & { _count: { batches: number } }): AdminMill => ({
+  id: m.id,
+  name: m.name,
+  contactName: m.contactName,
+  phone: m.phone,
+  town: m.town,
+  district: m.district,
+  state: m.state,
+  fssaiLicense: m.fssaiLicense,
+  certifications: m.certifications,
+  isActive: m.isActive,
+  batchCount: m._count.batches,
+  createdAt: m.createdAt.toISOString(),
+  updatedAt: m.updatedAt.toISOString(),
 });
 
-export const toAdminPartner = (p: Partner & { _count: { batches: number } }): AdminPartner => ({
-  ...toPartner(p),
-  phone: p.phone,
-  isActive: p.isActive,
-  batchCount: p._count.batches,
-  createdAt: p.createdAt.toISOString(),
-  updatedAt: p.updatedAt.toISOString(),
+export const toAdminVariety = (v: Variety & { _count: { batches: number } }): AdminVariety => ({
+  id: v.id,
+  name: v.name,
+  slug: v.slug,
+  categoryId: v.categoryId,
+  isActive: v.isActive,
+  batchCount: v._count.batches,
+  createdAt: v.createdAt.toISOString(),
+  updatedAt: v.updatedAt.toISOString(),
 });
 
 export const toAdminProduct = (p: Product & { _count?: { orderItems: number } }, b: Pick<Batch, "availableKg">): AdminProduct => ({
@@ -46,9 +37,8 @@ export const toAdminProduct = (p: Product & { _count?: { orderItems: number } },
   name: p.name,
   batchId: p.batchId,
   bagSizeKg: p.bagSizeKg,
-  farmerShare: toRupees(p.farmerSharePaise),
-  partnerShare: toRupees(p.partnerSharePaise),
-  platformFee: toRupees(p.platformFeePaise),
+  millPrice: toRupees(p.millPricePaise),
+  kisaMargin: toRupees(p.kisaMarginPaise),
   price: toRupees(p.pricePaise),
   description: p.description,
   tags: p.tags,
@@ -91,24 +81,21 @@ export const toAuditEntry = (a: AdminAuditLog & { adminUser: Pick<AdminUser, "id
   createdAt: a.createdAt.toISOString(),
 });
 
-/** Batch fields in API units, for audit snapshots and the detail view. */
+export const riceAttrs = (b: Pick<Batch, "attributes">) => {
+  const a = (b.attributes ?? {}) as { riceType?: RiceType; age?: RiceAge };
+  return { riceType: a.riceType ?? null, age: a.age ?? null };
+};
+
+/** Batch fields in API units, for audit snapshots. */
 export const batchSnapshot = (b: Batch) => ({
-  categoryId: b.categoryId as CategoryId,
-  salesModel: b.salesModel,
-  farmerId: b.farmerId,
-  partnerId: b.partnerId,
-  variety: b.variety,
-  harvestDate: isoDate(b.harvestDate),
+  categoryId: b.categoryId,
+  varietyId: b.varietyId,
+  millId: b.millId,
+  millingDate: isoDate(b.millingDate),
   packedDate: isoDate(b.packedDate),
-  inputKg: b.inputKg,
-  outputKg: b.outputKg,
+  bestBefore: isoDate(b.bestBefore),
+  packedKg: b.packedKg,
   availableKg: b.availableKg,
-  purchase:
-    b.purchaseDate && b.purchasePricePerKgPaise !== null
-      ? { date: isoDate(b.purchaseDate), pricePerKg: toRupees(b.purchasePricePerKgPaise) }
-      : null,
-  shelfLifeDays: b.shelfLifeDays,
-  expiresOn: b.expiresOn ? isoDate(b.expiresOn) : null,
   attributes: (b.attributes ?? {}) as Record<string, unknown>,
   quality: (b.quality ?? {}) as Record<string, unknown>,
 });
@@ -118,9 +105,8 @@ export const productSnapshot = (p: Product) => ({
   name: p.name,
   batchId: p.batchId,
   bagSizeKg: p.bagSizeKg,
-  farmerShare: toRupees(p.farmerSharePaise),
-  partnerShare: toRupees(p.partnerSharePaise),
-  platformFee: toRupees(p.platformFeePaise),
+  millPrice: toRupees(p.millPricePaise),
+  kisaMargin: toRupees(p.kisaMarginPaise),
   price: toRupees(p.pricePaise),
   description: p.description,
   tags: p.tags,

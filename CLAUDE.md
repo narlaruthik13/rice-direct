@@ -80,6 +80,7 @@ Phase 1 and Phase 1.5 are complete and live. Phase 2 moves the project into a mo
 - **Refresh-token reuse grace period:** the admin's single-flight refresh is in-memory, so on Vercel (several middleware instances) parallel refreshes can still trip the API's token-reuse protection and sign an admin out. Add a short grace period (~10 s) in the API during which a just-rotated refresh token is accepted.
 - **Login rate limiting by email + IP, with a trusted forwarded IP:** the API sees every admin login coming from the admin server's IP, so the per-IP limit is shared by all admins. Rate-limit by email + client IP, where the admin server forwards the client IP and the API trusts it only from the admin server (shared secret header).
 - Run `prisma migrate deploy` against the production branch from the hosting platform or CI (never from a local machine).
+- The `rice_only_model` migration clears the catalogue and order tables (pre-launch model change; admin users and delivery settings are kept). After deploying it to production, run the seed once (`pnpm --filter @kisa/db db:seed` with the production URLs) to load the rice catalogue.
 
 ### Phase 2 build steps (one at a time)
 1. Restructure into the monorepo (no visual change)

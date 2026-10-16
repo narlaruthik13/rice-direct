@@ -1,122 +1,166 @@
 "use client";
 
-// New batch, step by step: category → sales model → farmer and partner → variety,
-// dates and kg → crop details → packs and prices → review. One form, validated per
-// step with the shared BatchCreateSchema; the API re-checks everything.
-import { useEffect, useMemo, useState } from "react";
+// New batch, step by step: mill → variety → type → age → dates → quality → packs →
+// review. One form; every step is checked with the shared schemas (BatchCreateSchema,
+// RiceAttributesSchema, RiceQualitySchema, batchIssues), and the API re-checks everything.
+import { forwardRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type FieldPath, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { type AdminFarmer, type AdminPartner, type BatchCreateInput, BatchCreateSchema, type CategorySummary, CROPS, isCategoryId } from "@kisa/shared";
+import {
+  type AdminMill,
+  type AdminVariety,
+  type BatchCreateInput,
+  BatchCreateSchema,
+  batchIssues,
+  type CategorySummary,
+  RICE_AGE_LABEL,
+  RICE_AGES,
+  RICE_TYPE_LABEL,
+  RICE_TYPES,
+  RiceAttributesSchema,
+  RiceQualitySchema,
+} from "@kisa/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, Select, Textarea } from "@/components/ui/form-controls";
 import { Input } from "@/components/ui/input";
 import { createBatch } from "@/lib/actions";
 import { handleResult } from "@/lib/form-errors";
-import { CATEGORY_LABEL, MODEL_LABEL, rupees } from "@/lib/format";
+import { ageLabel, rupees, shortDate, typeLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CropFields } from "./CropFields";
-import { PricePreview, partLabels, sumParts } from "./bits";
+import { QualityFields } from "./QualityFields";
+import { PricePreview, priceOf } from "./bits";
 
 type Values = BatchCreateInput;
 type Product = NonNullable<Values["products"]>[number];
 
-const STEPS = ["Category", "Sales model", "Farmer & partner", "Variety, dates & kg", "Crop details", "Packs & prices", "Review"] as const;
+const STEPS = ["Mill", "Variety", "Type", "Age", "Dates", "Quality", "Packs & prices", "Review"] as const;
 
 const STEP_FIELDS: FieldPath<Values>[][] = [
-  ["categoryId"],
-  ["salesModel"],
-  ["farmerId", "partnerId"],
-  ["variety", "harvestDate", "packedDate", "inputKg", "outputKg", "purchase", "shelfLifeDays"],
-  ["attributes", "quality"],
+  ["millId"],
+  ["varietyId"],
+  ["attributes"],
+  ["attributes"],
+  ["millingDate", "packedDate", "bestBefore", "packedKg"],
+  ["quality"],
   ["products"],
   [],
 ];
 
+const TYPE_HINT: Record<string, string> = {
+  RAW: "Milled straight from dried paddy. Soft, everyday rice.",
+  STEAM: "Paddy steamed before milling. Firmer grains that stay separate.",
+  BOILED: "Parboiled: soaked, steamed and dried. Holds its shape, keeps well.",
+};
+const AGE_HINT: Record<string, string> = {
+  NEW: "Sold within a few months of milling.",
+  AGED: "Stored 6+ months. Cooks fluffier and less sticky.",
+};
+
 const today = () => new Date().toISOString().slice(0, 10);
-const round2 = (n: number) => Math.round(n * 100) / 100;
+const plusDays = (iso: string, days: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 function errorAt(errors: unknown, path: string): string | undefined {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return path.split(".").reduce<any>((e, k) => e?.[k], errors)?.message;
 }
 
-export function NewBatchWizard({
-  categories,
-  farmers,
-  partners,
-}: {
-  categories: CategorySummary[];
-  farmers: AdminFarmer[];
-  partners: AdminPartner[];
-}) {
+/** A radio option as a card. Forwards the ref: react-hook-form reads radio values through it. */
+const ChoiceCard = forwardRef<HTMLInputElement, React.ComponentPropsWithoutRef<"input"> & { children: React.ReactNode }>(function ChoiceCard({ children, ...input }, ref) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-secondary/40 has-[:checked]:border-primary has-[:checked]:bg-secondary/60">
+      <input ref={ref} type="radio" className="mt-1 accent-field" {...input} />
+      <span>{children}</span>
+    </label>
+  );
+});
+
+export function NewBatchWizard({ category, varieties, mills }: { category: CategorySummary; varieties: AdminVariety[]; mills: AdminMill[] }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [bestBeforeTouched, setBestBeforeTouched] = useState(false);
   const form = useForm<Values>({
     resolver: zodResolver(BatchCreateSchema) as never,
-    shouldUnregister: true, // fields for the other crop or sales model drop out of the values
     defaultValues: {
-      categoryId: "",
-      salesModel: "FARMER_OWNED",
-      harvestDate: "",
+      categoryId: category.id,
+      millId: "",
+      varietyId: "",
       packedDate: today(),
-      attributes: { age: "new", sizeGrade: "medium" },
-      quality: { grade: "A", pungency: "Medium" },
+      bestBefore: plusDays(today(), category.shelfLifeDays),
+      attributes: {},
+      quality: { grade: "A" },
       products: [],
     },
   });
-  const { register, control, handleSubmit, trigger, setValue, setError, getValues, formState } = form;
+  const { register, control, handleSubmit, trigger, setValue, setError, clearErrors, getValues, formState } = form;
   const { errors, isSubmitting } = formState;
   const products = useFieldArray({ control, name: "products" });
-
-  const [categoryId, salesModel, partnerId, inputKg, outputKg, purchasePrice, variety, watchedProducts] = useWatch({
+  const [packedDate, varietyId, riceType, age, watchedProducts] = useWatch({
     control,
-    name: ["categoryId", "salesModel", "partnerId", "inputKg", "outputKg", "purchase.pricePerKg", "variety", "products"],
-  });
-  const category = categories.find((c) => c.id === categoryId);
-  const crop = categoryId && isCategoryId(categoryId) ? CROPS[categoryId] : undefined;
-  const partner = partners.find((p) => p.id === partnerId);
-  const partnerChoices = useMemo(() => partners.filter((p) => !crop || p.type === crop.partnerType), [partners, crop]);
-  const labels = partLabels(salesModel ?? "FARMER_OWNED");
+    name: ["packedDate", "varietyId", "attributes.riceType", "attributes.age", "products"],
+  }) as [string, string, string | undefined, string | undefined, Product[]];
+  const variety = varieties.find((v) => v.id === varietyId);
 
-  // Keep each pack's price equal to the sum of its parts (the API requires it).
+  // Best-before follows the packed date (+ shelf life) until the admin sets it.
   useEffect(() => {
-    (watchedProducts ?? []).forEach((p: Product, i: number) => {
-      const sum = sumParts(p.farmerShare, p.partnerShare, p.platformFee ?? 0);
+    if (!bestBeforeTouched && packedDate && /^\d{4}-\d{2}-\d{2}$/.test(packedDate)) setValue("bestBefore", plusDays(packedDate, category.shelfLifeDays));
+  }, [packedDate, bestBeforeTouched, category.shelfLifeDays, setValue]);
+
+  // Keep each pack's price equal to mill price + Kisa margin (the API requires it).
+  useEffect(() => {
+    (watchedProducts ?? []).forEach((p, i) => {
+      const sum = priceOf(p.millPrice, p.kisaMargin);
       if (p.price !== sum) setValue(`products.${i}.price`, sum);
     });
   }, [watchedProducts, setValue]);
 
-  /** Suggested parts for a pack size: platform fee from the category, the partner's fee, the farmer's purchase price. */
-  const suggested = (bagSizeKg: number) => {
-    const ratio = Number(inputKg) > 0 && Number(outputKg) > 0 ? Number(inputKg) / Number(outputKg) : 1;
-    return {
-      platformFee: round2((category?.platformFeePerKg ?? 0) * bagSizeKg),
-      partnerShare: salesModel === "FARMER_OWNED" ? round2((partner?.processingFeePerKg ?? 0) * bagSizeKg) : 0,
-      farmerShare: salesModel === "PARTNER_SOURCED" && Number(purchasePrice) > 0 ? Math.round(Number(purchasePrice) * ratio * bagSizeKg) : 0,
-    };
-  };
+  const packName = () => [age === "AGED" ? "Aged" : "", variety?.name ?? "", riceType ? `, ${typeLabel(riceType)}` : ""].join(" ").replace(/\s+,/, ",").trim();
 
-  const addPack = () => {
-    const bag = category?.packSizesKg[0] ?? 1;
-    const s = suggested(bag);
-    products.append({ name: variety || "", bagSizeKg: bag, ...s, price: sumParts(s.farmerShare, s.partnerShare, s.platformFee), description: "", tags: [], featured: false });
+  const addPack = () =>
+    products.append({ name: packName(), bagSizeKg: category.packSizesKg[0], millPrice: 0, kisaMargin: 0, price: 0, description: "", tags: [], featured: false });
+
+  /** Base field errors come from the resolver; the rest from the shared rice and batch rules. */
+  const validateStep = async (s: number) => {
+    clearErrors();
+    let ok = await trigger(STEP_FIELDS[s]);
+    const v = getValues();
+    const fail = (path: string, message: string) => {
+      setError(path as FieldPath<Values>, { message });
+      ok = false;
+    };
+    if (s === 2) {
+      const r = RiceAttributesSchema.shape.riceType.safeParse(v.attributes?.riceType);
+      if (!r.success) fail("attributes.riceType", r.error.issues[0].message);
+    }
+    if (s === 3) {
+      const r = RiceAttributesSchema.shape.age.safeParse(v.attributes?.age);
+      if (!r.success) fail("attributes.age", r.error.issues[0].message);
+    }
+    if (s === 4) {
+      for (const i of batchIssues({ ...v, attributes: {}, quality: {} })) {
+        if (["millingDate", "packedDate", "bestBefore"].includes(i.path)) fail(i.path, i.message);
+      }
+    }
+    if (s === 5) {
+      const r = RiceQualitySchema.safeParse(v.quality);
+      if (!r.success) for (const i of r.error.issues) fail(["quality", ...i.path].join("."), i.message);
+    }
+    return ok;
   };
 
   const next = async () => {
-    if (!(await trigger(STEP_FIELDS[step]))) return;
-    if (step === 4 && products.fields.length === 0) addPack(); // start the packs step with one pack
+    if (!(await validateStep(step))) return;
+    if (step === 5 && products.fields.length === 0) addPack(); // start the packs step with one pack
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
 
   const onSubmit = async (values: Values) => {
     const result = await createBatch(values);
     if (!handleResult(result, setError)) {
-      // Jump back to the first step with an error.
-      const failed = (result.ok ? [] : result.issues ?? []).map((i) => i.path.split(".")[0]);
+      const failed = (result.ok ? [] : (result.issues ?? [])).map((i) => i.path.split(".")[0]);
       const at = STEP_FIELDS.findIndex((fields) => fields.some((f) => failed.includes(f.split(".")[0])));
       if (at >= 0) setStep(at);
       return;
@@ -129,6 +173,7 @@ export function NewBatchWizard({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <input type="hidden" {...register("categoryId")} />
       <ol className="mb-6 flex flex-wrap gap-2" aria-label="Steps">
         {STEPS.map((s, i) => (
           <li
@@ -149,116 +194,87 @@ export function NewBatchWizard({
         <CardContent className="pt-6">
           <h2 className="mb-4 text-2xl font-semibold">{STEPS[step]}</h2>
 
-          {/* 1. Category */}
-          <div hidden={step !== 0} className="grid gap-3 sm:grid-cols-2">
-            {categories.map((c) => (
-              <label key={c.id} className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-[:checked]:border-primary has-[:checked]:bg-secondary/50">
-                <input type="radio" value={c.id} className="mt-1 accent-field" {...register("categoryId")} />
-                <span>
-                  <span className="font-display text-lg font-semibold">{c.name}</span>
+          {/* 1. Mill (admin only; never shown to customers) */}
+          <div hidden={step !== 0} className="space-y-3">
+            <p className="text-sm text-muted-foreground">The mill that packed this rice in Kisa bags. Recorded for payouts and quality; customers never see it.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {mills.map((m) => (
+                <ChoiceCard key={m.id} value={m.id} {...register("millId")}>
+                  <span className="font-display text-lg font-semibold">{m.name}</span>
                   <span className="block text-sm text-muted-foreground">
-                    Packs {c.packSizesKg.join(", ")} kg · platform fee {rupees(c.platformFeePerKg)}/kg{c.perishable ? " · perishable" : ""}
+                    {m.town}, {m.district}
                   </span>
-                </span>
-              </label>
-            ))}
-            {e("categoryId") && <p className="text-sm text-destructive">Choose a category.</p>}
+                </ChoiceCard>
+              ))}
+            </div>
+            {e("millId") && <p className="text-sm text-destructive">{e("millId")}</p>}
           </div>
 
-          {/* 2. Sales model */}
-          <div hidden={step !== 1} className="grid gap-3 sm:grid-cols-2">
-            {(["FARMER_OWNED", "PARTNER_SOURCED"] as const).map((m) => (
-              <label key={m} className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-[:checked]:border-primary has-[:checked]:bg-secondary/50">
-                <input type="radio" value={m} className="mt-1 accent-field" {...register("salesModel")} />
-                <span>
-                  <span className="font-display text-lg font-semibold">{MODEL_LABEL[m]}</span>
-                  <span className="block text-sm text-muted-foreground">
-                    {m === "FARMER_OWNED"
-                      ? "The farmer owns the produce and pays the partner a processing fee."
-                      : "The partner buys from the farmer at a published price, then processes and sells."}
-                  </span>
-                </span>
-              </label>
-            ))}
+          {/* 2. Variety */}
+          <div hidden={step !== 1} className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {varieties.map((v) => (
+                <ChoiceCard key={v.id} value={v.id} {...register("varietyId")}>
+                  <span className="font-display text-lg font-semibold">{v.name}</span>
+                </ChoiceCard>
+              ))}
+            </div>
+            {e("varietyId") && <p className="text-sm text-destructive">{e("varietyId")}</p>}
           </div>
 
-          {/* 3. Farmer and partner */}
-          <div hidden={step !== 2} className="grid gap-4 sm:grid-cols-2">
-            <Field id="farmerId" label="Farmer" error={e("farmerId")}>
-              <Select {...register("farmerId")}>
-                <option value="">Choose a farmer</option>
-                {farmers.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name} · {f.village}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field id="partnerId" label={crop?.partnerType === "PACKHOUSE" ? "Packhouse" : "Mill"} error={e("partnerId")} hint={crop ? `Only ${crop.partnerType === "MILL" ? "rice mills" : "onion packhouses"} are listed.` : undefined}>
-              <Select {...register("partnerId")}>
-                <option value="">Choose a partner</option>
-                {partnerChoices.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} · {rupees(p.processingFeePerKg)}/kg
-                  </option>
-                ))}
-              </Select>
-            </Field>
+          {/* 3. Type */}
+          <div hidden={step !== 2} className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {RICE_TYPES.map((t) => (
+                <ChoiceCard key={t} value={t} {...register("attributes.riceType")}>
+                  <span className="font-display text-lg font-semibold">{RICE_TYPE_LABEL[t]}</span>
+                  <span className="block text-sm text-muted-foreground">{TYPE_HINT[t]}</span>
+                </ChoiceCard>
+              ))}
+            </div>
+            {e("attributes.riceType") && <p className="text-sm text-destructive">{e("attributes.riceType")}</p>}
           </div>
 
-          {/* 4. Variety, dates and kg */}
-          <div hidden={step !== 3} className="grid gap-4 sm:grid-cols-2">
-            <Field id="variety" label="Variety" error={e("variety")}>
-              <Select {...register("variety")}>
-                <option value="">Choose a variety</option>
-                {(crop?.varieties ?? []).map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <div className="hidden sm:block" />
-            <Field id="harvestDate" label="Harvest date" error={e("harvestDate")}>
-              <Input type="date" {...register("harvestDate")} />
+          {/* 4. Age */}
+          <div hidden={step !== 3} className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {RICE_AGES.map((a) => (
+                <ChoiceCard key={a} value={a} {...register("attributes.age")}>
+                  <span className="font-display text-lg font-semibold">{RICE_AGE_LABEL[a]}</span>
+                  <span className="block text-sm text-muted-foreground">{AGE_HINT[a]}</span>
+                </ChoiceCard>
+              ))}
+            </div>
+            {e("attributes.age") && <p className="text-sm text-destructive">{e("attributes.age")}</p>}
+          </div>
+
+          {/* 5. Dates and kg */}
+          <div hidden={step !== 4} className="grid gap-4 sm:grid-cols-2">
+            <Field id="millingDate" label="Milling date" error={e("millingDate")}>
+              <Input type="date" {...register("millingDate")} />
             </Field>
             <Field id="packedDate" label="Packed date" error={e("packedDate")} hint="The batch id uses this date.">
               <Input type="date" {...register("packedDate")} />
             </Field>
-            <Field id="inputKg" label={`Raw ${categoryId === "rice" ? "paddy" : "produce"} in (kg)`} error={e("inputKg")}>
-              <Input type="number" step="1" min="1" {...register("inputKg", { valueAsNumber: true })} />
+            <Field id="bestBefore" label="Best before" error={e("bestBefore")} hint={`Defaults to ${category.shelfLifeDays} days after packing. Not sold from this date.`}>
+              <Input type="date" {...register("bestBefore", { onChange: () => setBestBeforeTouched(true) })} />
             </Field>
-            <Field id="outputKg" label="Sellable out (kg)" error={e("outputKg")} hint="Becomes the batch's stock.">
-              <Input type="number" step="1" min="1" {...register("outputKg", { valueAsNumber: true })} />
+            <Field id="packedKg" label="Kg packed in Kisa bags" error={e("packedKg")} hint="Becomes the batch's stock.">
+              <Input type="number" step="1" min="1" {...register("packedKg", { valueAsNumber: true })} />
             </Field>
-            {salesModel === "PARTNER_SOURCED" && (
-              <>
-                <Field id="purchase.date" label="Bought from the farmer on" error={e("purchase.date") ?? e("purchase")}>
-                  <Input type="date" {...register("purchase.date")} />
-                </Field>
-                <Field id="purchase.pricePerKg" label="Price paid to the farmer (₹ per raw kg)" error={e("purchase.pricePerKg")}>
-                  <Input type="number" step="0.01" min="0" {...register("purchase.pricePerKg", { valueAsNumber: true })} />
-                </Field>
-              </>
-            )}
-            {crop?.needsShelfLife && (
-              <Field id="shelfLifeDays" label="Shelf life (days)" error={e("shelfLifeDays")} hint="Stops selling this many days after packing.">
-                <Input type="number" step="1" min="1" {...register("shelfLifeDays", { valueAsNumber: true })} />
-              </Field>
-            )}
           </div>
 
-          {/* 5. Crop details */}
-          <div hidden={step !== 4}>{categoryId && <CropFields key={categoryId} categoryId={categoryId} register={register} errors={errors} />}</div>
+          {/* 6. Quality */}
+          <div hidden={step !== 5} className="space-y-3">
+            <p className="text-sm text-muted-foreground">Shown to customers on the Quality Passport.</p>
+            <QualityFields register={register} errors={errors} />
+          </div>
 
-          {/* 6. Packs and prices */}
-          <div hidden={step !== 5} className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Prices are per pack. The customer price is always {labels.farmer.toLowerCase()} + {labels.partner.toLowerCase()} + platform fee.
-            </p>
+          {/* 7. Packs and prices */}
+          <div hidden={step !== 6} className="space-y-4">
+            <p className="text-sm text-muted-foreground">Prices are per pack. Customer price = mill price + Kisa margin; customers see only the total.</p>
             {products.fields.map((field, i) => {
               const p = (watchedProducts?.[i] ?? field) as Product;
-              const bagRegister = register(`products.${i}.bagSizeKg`, { valueAsNumber: true });
               return (
                 <div key={field.id} className="rounded-lg border p-4" data-testid={`pack-${i}`}>
                   <div className="mb-3 flex items-center justify-between">
@@ -267,56 +283,44 @@ export function NewBatchWizard({
                       <Trash2 aria-hidden="true" />
                     </Button>
                   </div>
-                  <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+                  <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field id={`products.${i}.name`} label="Product name" error={e(`products.${i}.name`)}>
                         <Input {...register(`products.${i}.name`)} />
                       </Field>
                       <Field id={`products.${i}.bagSizeKg`} label="Pack size" error={e(`products.${i}.bagSizeKg`)}>
-                        <Select
-                          {...bagRegister}
-                          onChange={(ev) => {
-                            bagRegister.onChange(ev);
-                            const s = suggested(Number(ev.target.value));
-                            setValue(`products.${i}.platformFee`, s.platformFee);
-                            if (salesModel === "FARMER_OWNED") setValue(`products.${i}.partnerShare`, s.partnerShare);
-                            else if (s.farmerShare) setValue(`products.${i}.farmerShare`, s.farmerShare);
-                          }}
-                        >
-                          {(category?.packSizesKg ?? []).map((kg) => (
+                        <Select {...register(`products.${i}.bagSizeKg`, { valueAsNumber: true })}>
+                          {category.packSizesKg.map((kg) => (
                             <option key={kg} value={kg}>
                               {kg} kg
                             </option>
                           ))}
                         </Select>
                       </Field>
-                      <Field id={`products.${i}.farmerShare`} label={`${labels.farmer} (₹)`} error={e(`products.${i}.farmerShare`)}>
-                        <Input type="number" step="0.01" min="0" {...register(`products.${i}.farmerShare`, { valueAsNumber: true })} />
+                      <Field id={`products.${i}.millPrice`} label="Mill price (₹ per pack)" error={e(`products.${i}.millPrice`)}>
+                        <Input type="number" step="0.01" min="0" {...register(`products.${i}.millPrice`, { valueAsNumber: true })} />
                       </Field>
-                      <Field id={`products.${i}.partnerShare`} label={`${labels.partner} (₹)`} error={e(`products.${i}.partnerShare`)}>
-                        <Input type="number" step="0.01" min="0" {...register(`products.${i}.partnerShare`, { valueAsNumber: true })} />
-                      </Field>
-                      <Field id={`products.${i}.platformFee`} label="Platform fee (₹)" error={e(`products.${i}.platformFee`)} hint={category ? `${rupees(category.platformFeePerKg)}/kg by default` : undefined}>
-                        <Input type="number" step="0.01" min="0" {...register(`products.${i}.platformFee`, { valueAsNumber: true })} />
+                      <Field id={`products.${i}.kisaMargin`} label="Kisa margin (₹ per pack)" error={e(`products.${i}.kisaMargin`)}>
+                        <Input type="number" step="0.01" min="0" {...register(`products.${i}.kisaMargin`, { valueAsNumber: true })} />
                       </Field>
                       <input type="hidden" {...register(`products.${i}.price`, { valueAsNumber: true })} />
                       <Field id={`products.${i}.description`} label="Description" error={e(`products.${i}.description`) ?? e(`products.${i}.price`)} className="sm:col-span-2">
                         <Textarea rows={2} {...register(`products.${i}.description`)} />
                       </Field>
                     </div>
-                    <PricePreview model={salesModel ?? "FARMER_OWNED"} farmerShare={p.farmerShare} partnerShare={p.partnerShare} platformFee={p.platformFee ?? 0} />
+                    <PricePreview millPrice={p.millPrice} kisaMargin={p.kisaMargin} />
                   </div>
                 </div>
               );
             })}
-            <Button type="button" variant="outline" onClick={addPack} disabled={!category || products.fields.length >= 10}>
+            <Button type="button" variant="outline" onClick={addPack} disabled={products.fields.length >= 10}>
               <Plus aria-hidden="true" />
               Add a pack
             </Button>
           </div>
 
-          {/* 7. Review */}
-          {step === 6 && <Review values={getValues()} farmers={farmers} partners={partners} />}
+          {/* 8. Review */}
+          {step === 7 && <Review values={getValues()} varieties={varieties} mills={mills} />}
         </CardContent>
       </Card>
 
@@ -343,19 +347,16 @@ export function NewBatchWizard({
   );
 }
 
-function Review({ values, farmers, partners }: { values: Values; farmers: AdminFarmer[]; partners: AdminPartner[] }) {
-  const farmer = farmers.find((f) => f.id === values.farmerId);
-  const partner = partners.find((p) => p.id === values.partnerId);
+function Review({ values, varieties, mills }: { values: Values; varieties: AdminVariety[]; mills: AdminMill[] }) {
+  const attrs = values.attributes as { riceType?: string; age?: string };
   const rows: [string, string][] = [
-    ["Crop", `${CATEGORY_LABEL[values.categoryId] ?? values.categoryId} · ${values.variety}`],
-    ["Sales model", MODEL_LABEL[values.salesModel]],
-    ["Farmer", farmer?.name ?? "–"],
-    ["Partner", partner?.name ?? "–"],
-    ["Harvested / packed", `${values.harvestDate} / ${values.packedDate}`],
-    ["In / out", `${values.inputKg} kg / ${values.outputKg} kg (stock starts at ${values.outputKg} kg)`],
+    ["Mill (admin only)", mills.find((m) => m.id === values.millId)?.name ?? "–"],
+    ["Variety", varieties.find((v) => v.id === values.varietyId)?.name ?? "–"],
+    ["Type / age", `${typeLabel(attrs.riceType)} · ${ageLabel(attrs.age)}`],
+    ["Milled / packed", `${shortDate(values.millingDate)} / ${shortDate(values.packedDate)}`],
+    ["Best before", values.bestBefore ? shortDate(values.bestBefore) : "–"],
+    ["Packed", `${values.packedKg} kg (stock starts at ${values.packedKg} kg)`],
   ];
-  if (values.purchase) rows.push(["Purchase", `${rupees(values.purchase.pricePerKg)}/kg on ${values.purchase.date}`]);
-  if (values.shelfLifeDays) rows.push(["Shelf life", `${values.shelfLifeDays} days`]);
   return (
     <div className="space-y-4">
       <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
@@ -377,7 +378,12 @@ function Review({ values, farmers, partners }: { values: Values; farmers: AdminF
                 <span>
                   {p.name} · {p.bagSizeKg} kg
                 </span>
-                <span className="font-semibold">{rupees(p.price)}</span>
+                <span>
+                  <span className="text-muted-foreground">
+                    {rupees(p.millPrice)} + {rupees(p.kisaMargin)} ={" "}
+                  </span>
+                  <span className="font-semibold">{rupees(p.price)}</span>
+                </span>
               </li>
             ))}
           </ul>

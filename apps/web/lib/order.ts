@@ -2,8 +2,6 @@
 // success page can show it; Phase 2/3 replaces this with a server-created order
 // (and Razorpay order + signature verification on the server).
 
-import type { PriceSplit } from "@/lib/pricing";
-
 export interface Address {
   name: string;
   phone: string;
@@ -27,12 +25,13 @@ export interface OrderSnapshot {
     quantity: number;
     price: number;
     batchId: string;
-    farmerName: string;
+    variety: string;
   }[];
-  totals: PriceSplit & { price: number };
+  totals: { price: number };
 }
 
-const KEY = "vari-direct-last-order";
+// v2: rice-only model (older snapshots carried farmer names and a price split).
+const KEY = "kisa-last-order-v2";
 
 export function makeOrderId() {
   return `KS-ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
@@ -50,8 +49,7 @@ export function loadOrder(): OrderSnapshot | null {
   try {
     const raw = sessionStorage.getItem(KEY);
     const order = raw ? (JSON.parse(raw) as OrderSnapshot) : null;
-    // Ignore snapshots saved before Phase 1.5 (old totals shape).
-    return order && typeof order.totals?.farmer === "number" ? order : null;
+    return order && typeof order.totals?.price === "number" ? order : null;
   } catch {
     return null;
   }

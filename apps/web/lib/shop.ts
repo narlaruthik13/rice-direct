@@ -1,96 +1,63 @@
-// Shop filtering. Filters live in the URL so filtered views can be shared:
-//   /shop?variety=…&farm=…&sold=…&max=…&sort=…          (all categories)
-//   /shop/rice?age=aged   /shop/onions?size=large        (+ category filters from lib/categories.ts)
-
-import type { CategoryFilterDef, Product } from "@kisa/shared";
+// Shop filters, kept in the URL: ?type=STEAM&variety=sona-masoori,hmt&age=AGED&pack=10,25&sort=price-asc
+import type { Product, RiceAge, RiceType } from "@kisa/shared";
 
 export type SortKey = "featured" | "price-asc" | "price-desc";
 
-/** "Sold by": farmer = FARMER_OWNED, partner = PARTNER_SOURCED. */
-export type SoldBy = "all" | "farmer" | "partner";
-
 export interface ShopFilters {
+  /** The type tab; null = all types. */
+  type: RiceType | null;
+  /** Variety slugs; empty = all. */
   varieties: string[];
-  farms: string[]; // farmer ids
-  /** Category-specific filters, keyed by URL param (e.g. { age: "aged" }). */
-  attrs: Record<string, string>;
-  soldBy: SoldBy;
-  maxPrice: number | null;
+  age: RiceAge | null;
+  /** Pack sizes in kg; empty = all. */
+  packs: number[];
   sort: SortKey;
 }
 
-export const EMPTY_FILTERS: ShopFilters = {
-  varieties: [],
-  farms: [],
-  attrs: {},
-  soldBy: "all",
-  maxPrice: null,
-  sort: "featured",
-};
+export const EMPTY_FILTERS: ShopFilters = { type: null, varieties: [], age: null, packs: [], sort: "featured" };
 
-export const PRICE_STEP = 50;
+const TYPES: RiceType[] = ["RAW", "STEAM", "BOILED"];
+const AGES: RiceAge[] = ["NEW", "AGED"];
+const SORTS: SortKey[] = ["featured", "price-asc", "price-desc"];
 
-const list = (value: string | null) => (value ? value.split(",").filter(Boolean) : []);
+const list = (v: string | null) => (v ? v.split(",").filter(Boolean) : []);
 
-export function parseFilters(params: { get(name: string): string | null }, defs: CategoryFilterDef[] = []): ShopFilters {
-  const sort = params.get("sort");
-  const sold = params.get("sold");
-  const max = Number(params.get("max"));
-  const attrs: Record<string, string> = {};
-  for (const def of defs) {
-    const value = params.get(def.param);
-    if (value && def.options.some((o) => o.value === value)) attrs[def.param] = value;
-  }
+export function parseFilters(params: URLSearchParams): ShopFilters {
+  const type = params.get("type") as RiceType | null;
+  const age = params.get("age") as RiceAge | null;
+  const sort = params.get("sort") as SortKey | null;
   return {
+    type: type && TYPES.includes(type) ? type : null,
     varieties: list(params.get("variety")),
-    farms: list(params.get("farm")),
-    attrs,
-    soldBy: sold === "farmer" || sold === "partner" ? sold : "all",
-    maxPrice: Number.isFinite(max) && max > 0 ? max : null,
-    sort: sort === "price-asc" || sort === "price-desc" ? sort : "featured",
+    age: age && AGES.includes(age) ? age : null,
+    packs: list(params.get("pack")).map(Number).filter((n) => Number.isInteger(n) && n > 0),
+    sort: sort && SORTS.includes(sort) ? sort : "featured",
   };
 }
 
-export function toQuery(f: ShopFilters) {
+export function toQuery(f: ShopFilters): string {
   const q = new URLSearchParams();
+  if (f.type) q.set("type", f.type);
   if (f.varieties.length) q.set("variety", f.varieties.join(","));
-  if (f.farms.length) q.set("farm", f.farms.join(","));
-  for (const [param, value] of Object.entries(f.attrs)) q.set(param, value);
-  if (f.soldBy !== "all") q.set("sold", f.soldBy);
-  if (f.maxPrice !== null) q.set("max", String(f.maxPrice));
+  if (f.age) q.set("age", f.age);
+  if (f.packs.length) q.set("pack", f.packs.join(","));
   if (f.sort !== "featured") q.set("sort", f.sort);
   return q.toString();
 }
 
-export function applyFilters(products: Product[], f: ShopFilters, defs: CategoryFilterDef[] = []) {
-  const result = products.filter((p) => {
-    const fields = p as unknown as Record<string, unknown>;
-    return (
-      (!f.varieties.length || f.varieties.includes(p.variety)) &&
-      (!f.farms.length || f.farms.includes(p.farmerId)) &&
-      defs.every((def) => f.attrs[def.param] === undefined || fields[def.key] === f.attrs[def.param]) &&
-      (f.soldBy === "all" || (f.soldBy === "farmer") === (p.salesModel === "FARMER_OWNED")) &&
-      (f.maxPrice === null || p.price <= f.maxPrice)
-    );
-  });
-  if (f.sort === "price-asc") return result.sort((a, b) => a.price - b.price);
-  if (f.sort === "price-desc") return result.sort((a, b) => b.price - a.price);
-  // Featured first, then in-stock before sold out; otherwise keep catalogue order.
-  return result.sort((a, b) => Number(b.featured) - Number(a.featured) || Number(b.inStock) - Number(a.inStock));
-}
+/** Filters other than the type tab and sort (the tab has its own control). */
+export const activeFilterCount = (f: ShopFilters) => f.varieties.length + (f.age ? 1 : 0) + f.packs.length;
 
-export const activeFilterCount = (f: ShopFilters) =>
-  f.varieties.length +
-  f.farms.length +
-  Object.keys(f.attrs).length +
-  (f.soldBy !== "all" ? 1 : 0) +
-  (f.maxPrice !== null ? 1 : 0);
-
-/** Slider bounds, rounded out to PRICE_STEP. */
-export function priceBounds(products: Product[]) {
-  const prices = products.map((p) => p.price);
-  return {
-    min: Math.floor(Math.min(...prices) / PRICE_STEP) * PRICE_STEP,
-    max: Math.ceil(Math.max(...prices) / PRICE_STEP) * PRICE_STEP,
-  };
+export function applyFilters(products: Product[], f: ShopFilters): Product[] {
+  const out = products.filter(
+    (p) =>
+      (!f.type || p.riceType === f.type) &&
+      (!f.varieties.length || f.varieties.includes(p.variety.slug)) &&
+      (!f.age || p.age === f.age) &&
+      (!f.packs.length || f.packs.includes(p.bagSizeKg)),
+  );
+  if (f.sort === "price-asc") return [...out].sort((a, b) => a.price - b.price);
+  if (f.sort === "price-desc") return [...out].sort((a, b) => b.price - a.price);
+  // Featured first, in-stock before sold out, otherwise catalogue order.
+  return [...out].sort((a, b) => Number(b.featured) - Number(a.featured) || Number(b.inStock) - Number(a.inStock));
 }

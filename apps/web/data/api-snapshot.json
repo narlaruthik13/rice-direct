@@ -1,0 +1,684 @@
+{
+  "source": "http://localhost:4300/api/v1 (public endpoints)",
+  "categories": [
+    {
+      "id": "rice",
+      "name": "Rice",
+      "slug": "rice",
+      "packSizesKg": [
+        5,
+        10,
+        25
+      ],
+      "shelfLifeDays": 365
+    }
+  ],
+  "varieties": [
+    {
+      "id": "variety-bpt-5204",
+      "name": "BPT 5204",
+      "slug": "bpt-5204",
+      "categoryId": "rice"
+    },
+    {
+      "id": "variety-hmt",
+      "name": "HMT",
+      "slug": "hmt",
+      "categoryId": "rice"
+    },
+    {
+      "id": "variety-sona-masoori",
+      "name": "Sona Masoori",
+      "slug": "sona-masoori",
+      "categoryId": "rice"
+    }
+  ],
+  "products": [
+    {
+      "id": "sona-masoori-raw-new-5kg",
+      "name": "Sona Masoori, Raw",
+      "categoryId": "rice",
+      "variety": {
+        "name": "Sona Masoori",
+        "slug": "sona-masoori"
+      },
+      "riceType": "RAW",
+      "age": "NEW",
+      "bagSizeKg": 5,
+      "price": 335,
+      "description": "Light, everyday Sona Masoori from this season's crop. Soft and separate for daily meals.",
+      "tags": [
+        "Everyday",
+        "New crop"
+      ],
+      "inStock": true,
+      "featured": false,
+      "batchId": "KS-2026-0904-SM"
+    },
+    {
+      "id": "sona-masoori-raw-new-10kg",
+      "name": "Sona Masoori, Raw",
+      "categoryId": "rice",
+      "variety": {
+        "name": "Sona Masoori",
+        "slug": "sona-masoori"
+      },
+      "riceType": "RAW",
+      "age": "NEW",
+      "bagSizeKg": 10,
+      "price": 650,
+      "description": "Light, everyday Sona Masoori from this season's crop. The family's monthly bag.",
+      "tags": [
+        "Everyday",
+        "New crop"
+      ],
+      "inStock": true,
+      "featured": true,
+      "batchId": "KS-2026-0904-SM"
+    },
+    {
+      "id": "sona-masoori-raw-aged-10kg",
+      "name": "Aged Sona Masoori, Raw",
+      "categoryId": "rice",
+      "variety": {
+        "name": "Sona Masoori",
+        "slug": "sona-masoori"
+      },
+      "riceType": "RAW",
+      "age": "AGED",
+      "bagSizeKg": 10,
+      "price": 710,
+      "description": "Six months of careful storage gives this Sona Masoori a fluffy, non-sticky cook.",
+      "tags": [
+        "Aged 6 months",
+        "Fluffy"
+      ],
+      "inStock": true,
+      "featured": true,
+      "batchId": "KS-2026-0410-SM"
+    },
+    {
+      "id": "sona-masoori-raw-aged-25kg",
+      "name": "Aged Sona Masoori, Raw",
+      "categoryId": "rice",
+      "variety": {
+        "name": "Sona Masoori",
+        "slug": "sona-masoori"
+      },
+      "riceType": "RAW",
+      "age": "AGED",
+      "bagSizeKg": 25,
+      "price": 1700,
+      "description": "Six months aged for a fluffy cook. The value bag for big kitchens.",
+      "tags": [
+        "Aged 6 months",
+        "Family pack"
+      ],
+      "inStock": true,
+      "featured": false,
+      "batchId": "KS-2026-0410-SM"
+    },
+    {
+      "id": "sona-masoori-steam-new-10kg",
+      "name": "Sona Masoori, Steam",
+      "categoryId": "rice",
+      "variety": {
+        "name": "Sona Masoori",
+        "slug": "sona-masoori"
+      },
+      "riceType": "STEAM",
+      "age": "NEW",
+      "bagSizeKg": 10,
+      "price": 670,
+      "description": "Steamed before milling, so the grains stay firm and cook evenly.",
+      "tags": [
+        "Steam",
+        "Firm grains"
+      ],
+      "inStock": true,
+      "featured": false,
+      "batchId": "KS-2026-0915-SM"
+    },
+    {
+      "id": "bpt-5204-raw-new-10kg",
+      "name": "BPT 5204, Raw",
+      "categoryId": "rice",
+      "variety": {
+        "name": "BPT 5204",
+        "slug": "bpt-5204"
+      },
+      "riceType": "RAW",
+      "age": "NEW",
+      "bagSizeKg": 10,
+      "price": 615,
+      "description": "Samba Masuri from the new crop: slender grains for everyday rice and pulihora.",
+      "tags": [
+        "Everyday",
+        "New crop"
+      ],
+      "inStock": true,
+      "featured": false,
+      "batchId": "KS-2026-0820-BP"
+    },
+    {
+      "id": "bpt-5204-raw-new-25kg",
+      "name": "BPT 5204, Raw",
+      "categoryId": "rice",
+      "variety": {
+        "name": "BPT 5204",
+        "slug": "bpt-5204"
+      },
+      "riceType": "RAW",
+      "age": "NEW",
+      "bagSizeKg": 25,
+      "price": 1475,
+      "description": "Samba Masuri from the new crop, in the 25 kg value bag.",
+      "tags": [
+        "Family pack",
+        "Great value"
+      ],
+      "inStock": true,
+      "featured": false,
+      "batchId": "KS-2026-0820-BP"
+    },
+    {
+      "id": "bpt-5204-boiled-aged-10kg",
+      "name": "Aged BPT 5204, Boiled",
+      "categoryId": "rice",
+      "variety": {
+        "name": "BPT 5204",
+        "slug": "bpt-5204"
+      },
+      "riceType": "BOILED",
+      "age": "AGED",
+      "bagSizeKg": 10,
+      "price": 640,
+      "description": "Parboiled and aged: holds its shape, stays separate and keeps well after cooking.",
+      "tags": [
+        "Boiled",
+        "Aged"
+      ],
+      "inStock": true,
+      "featured": true,
+      "batchId": "KS-2026-0705-BP"
+    },
+    {
+      "id": "hmt-raw-new-5kg",
+      "name": "HMT, Raw",
+      "categoryId": "rice",
+      "variety": {
+        "name": "HMT",
+        "slug": "hmt"
+      },
+      "riceType": "RAW",
+      "age": "NEW",
+      "bagSizeKg": 5,
+      "price": 355,
+      "description": "Short, soft HMT grains, a Telangana favourite for everyday meals.",
+      "tags": [
+        "Everyday",
+        "New crop"
+      ],
+      "inStock": true,
+      "featured": false,
+      "batchId": "KS-2026-0925-HM"
+    },
+    {
+      "id": "hmt-raw-new-10kg",
+      "name": "HMT, Raw",
+      "categoryId": "rice",
+      "variety": {
+        "name": "HMT",
+        "slug": "hmt"
+      },
+      "riceType": "RAW",
+      "age": "NEW",
+      "bagSizeKg": 10,
+      "price": 685,
+      "description": "Short, soft HMT grains, a Telangana favourite. The monthly bag.",
+      "tags": [
+        "Everyday",
+        "New crop"
+      ],
+      "inStock": true,
+      "featured": true,
+      "batchId": "KS-2026-0925-HM"
+    },
+    {
+      "id": "hmt-steam-aged-10kg",
+      "name": "Aged HMT, Steam",
+      "categoryId": "rice",
+      "variety": {
+        "name": "HMT",
+        "slug": "hmt"
+      },
+      "riceType": "STEAM",
+      "age": "AGED",
+      "bagSizeKg": 10,
+      "price": 730,
+      "description": "Steamed and aged HMT: firm, fragrant and fluffy.",
+      "tags": [
+        "Steam",
+        "Aged"
+      ],
+      "inStock": false,
+      "featured": false,
+      "batchId": "KS-2026-0610-HM"
+    }
+  ],
+  "traces": {
+    "KS-2026-0904-SM": {
+      "passport": {
+        "batchId": "KS-2026-0904-SM",
+        "categoryId": "rice",
+        "variety": {
+          "name": "Sona Masoori",
+          "slug": "sona-masoori"
+        },
+        "riceType": "RAW",
+        "age": "NEW",
+        "millingDate": "2026-09-02",
+        "packedDate": "2026-09-04",
+        "bestBefore": "2027-09-04",
+        "quality": {
+          "moisturePct": 13.1,
+          "brokenPct": 2.4,
+          "foreignMatterPct": 0.1,
+          "grainLengthMm": 5.1,
+          "testedBy": "Kisa QC lab, Hyderabad",
+          "testedOn": "2026-09-05",
+          "grade": "A+"
+        }
+      },
+      "products": [
+        {
+          "id": "sona-masoori-raw-new-5kg",
+          "name": "Sona Masoori, Raw",
+          "categoryId": "rice",
+          "variety": {
+            "name": "Sona Masoori",
+            "slug": "sona-masoori"
+          },
+          "riceType": "RAW",
+          "age": "NEW",
+          "bagSizeKg": 5,
+          "price": 335,
+          "description": "Light, everyday Sona Masoori from this season's crop. Soft and separate for daily meals.",
+          "tags": [
+            "Everyday",
+            "New crop"
+          ],
+          "inStock": true,
+          "featured": false,
+          "batchId": "KS-2026-0904-SM"
+        },
+        {
+          "id": "sona-masoori-raw-new-10kg",
+          "name": "Sona Masoori, Raw",
+          "categoryId": "rice",
+          "variety": {
+            "name": "Sona Masoori",
+            "slug": "sona-masoori"
+          },
+          "riceType": "RAW",
+          "age": "NEW",
+          "bagSizeKg": 10,
+          "price": 650,
+          "description": "Light, everyday Sona Masoori from this season's crop. The family's monthly bag.",
+          "tags": [
+            "Everyday",
+            "New crop"
+          ],
+          "inStock": true,
+          "featured": true,
+          "batchId": "KS-2026-0904-SM"
+        }
+      ]
+    },
+    "KS-2026-0410-SM": {
+      "passport": {
+        "batchId": "KS-2026-0410-SM",
+        "categoryId": "rice",
+        "variety": {
+          "name": "Sona Masoori",
+          "slug": "sona-masoori"
+        },
+        "riceType": "RAW",
+        "age": "AGED",
+        "millingDate": "2026-04-08",
+        "packedDate": "2026-04-10",
+        "bestBefore": "2027-04-10",
+        "quality": {
+          "moisturePct": 12.2,
+          "brokenPct": 2.1,
+          "foreignMatterPct": 0.1,
+          "grainLengthMm": 5.2,
+          "testedBy": "Kisa QC lab, Hyderabad",
+          "testedOn": "2026-04-11",
+          "grade": "Premium"
+        }
+      },
+      "products": [
+        {
+          "id": "sona-masoori-raw-aged-10kg",
+          "name": "Aged Sona Masoori, Raw",
+          "categoryId": "rice",
+          "variety": {
+            "name": "Sona Masoori",
+            "slug": "sona-masoori"
+          },
+          "riceType": "RAW",
+          "age": "AGED",
+          "bagSizeKg": 10,
+          "price": 710,
+          "description": "Six months of careful storage gives this Sona Masoori a fluffy, non-sticky cook.",
+          "tags": [
+            "Aged 6 months",
+            "Fluffy"
+          ],
+          "inStock": true,
+          "featured": true,
+          "batchId": "KS-2026-0410-SM"
+        },
+        {
+          "id": "sona-masoori-raw-aged-25kg",
+          "name": "Aged Sona Masoori, Raw",
+          "categoryId": "rice",
+          "variety": {
+            "name": "Sona Masoori",
+            "slug": "sona-masoori"
+          },
+          "riceType": "RAW",
+          "age": "AGED",
+          "bagSizeKg": 25,
+          "price": 1700,
+          "description": "Six months aged for a fluffy cook. The value bag for big kitchens.",
+          "tags": [
+            "Aged 6 months",
+            "Family pack"
+          ],
+          "inStock": true,
+          "featured": false,
+          "batchId": "KS-2026-0410-SM"
+        }
+      ]
+    },
+    "KS-2026-0915-SM": {
+      "passport": {
+        "batchId": "KS-2026-0915-SM",
+        "categoryId": "rice",
+        "variety": {
+          "name": "Sona Masoori",
+          "slug": "sona-masoori"
+        },
+        "riceType": "STEAM",
+        "age": "NEW",
+        "millingDate": "2026-09-13",
+        "packedDate": "2026-09-15",
+        "bestBefore": "2027-09-15",
+        "quality": {
+          "moisturePct": 12.8,
+          "brokenPct": 1.6,
+          "foreignMatterPct": 0.05,
+          "grainLengthMm": 5,
+          "testedBy": "Kisa QC lab, Hyderabad",
+          "testedOn": "2026-09-16",
+          "grade": "A+"
+        }
+      },
+      "products": [
+        {
+          "id": "sona-masoori-steam-new-10kg",
+          "name": "Sona Masoori, Steam",
+          "categoryId": "rice",
+          "variety": {
+            "name": "Sona Masoori",
+            "slug": "sona-masoori"
+          },
+          "riceType": "STEAM",
+          "age": "NEW",
+          "bagSizeKg": 10,
+          "price": 670,
+          "description": "Steamed before milling, so the grains stay firm and cook evenly.",
+          "tags": [
+            "Steam",
+            "Firm grains"
+          ],
+          "inStock": true,
+          "featured": false,
+          "batchId": "KS-2026-0915-SM"
+        }
+      ]
+    },
+    "KS-2026-0820-BP": {
+      "passport": {
+        "batchId": "KS-2026-0820-BP",
+        "categoryId": "rice",
+        "variety": {
+          "name": "BPT 5204",
+          "slug": "bpt-5204"
+        },
+        "riceType": "RAW",
+        "age": "NEW",
+        "millingDate": "2026-08-18",
+        "packedDate": "2026-08-20",
+        "bestBefore": "2027-08-20",
+        "quality": {
+          "moisturePct": 13,
+          "brokenPct": 2.6,
+          "foreignMatterPct": 0.1,
+          "grainLengthMm": 5,
+          "testedBy": "Kisa QC lab, Hyderabad",
+          "testedOn": "2026-08-21",
+          "grade": "A"
+        }
+      },
+      "products": [
+        {
+          "id": "bpt-5204-raw-new-10kg",
+          "name": "BPT 5204, Raw",
+          "categoryId": "rice",
+          "variety": {
+            "name": "BPT 5204",
+            "slug": "bpt-5204"
+          },
+          "riceType": "RAW",
+          "age": "NEW",
+          "bagSizeKg": 10,
+          "price": 615,
+          "description": "Samba Masuri from the new crop: slender grains for everyday rice and pulihora.",
+          "tags": [
+            "Everyday",
+            "New crop"
+          ],
+          "inStock": true,
+          "featured": false,
+          "batchId": "KS-2026-0820-BP"
+        },
+        {
+          "id": "bpt-5204-raw-new-25kg",
+          "name": "BPT 5204, Raw",
+          "categoryId": "rice",
+          "variety": {
+            "name": "BPT 5204",
+            "slug": "bpt-5204"
+          },
+          "riceType": "RAW",
+          "age": "NEW",
+          "bagSizeKg": 25,
+          "price": 1475,
+          "description": "Samba Masuri from the new crop, in the 25 kg value bag.",
+          "tags": [
+            "Family pack",
+            "Great value"
+          ],
+          "inStock": true,
+          "featured": false,
+          "batchId": "KS-2026-0820-BP"
+        }
+      ]
+    },
+    "KS-2026-0705-BP": {
+      "passport": {
+        "batchId": "KS-2026-0705-BP",
+        "categoryId": "rice",
+        "variety": {
+          "name": "BPT 5204",
+          "slug": "bpt-5204"
+        },
+        "riceType": "BOILED",
+        "age": "AGED",
+        "millingDate": "2026-07-03",
+        "packedDate": "2026-07-05",
+        "bestBefore": "2027-07-05",
+        "quality": {
+          "moisturePct": 12,
+          "brokenPct": 1.9,
+          "foreignMatterPct": 0.05,
+          "grainLengthMm": 5,
+          "testedBy": "Kisa QC lab, Hyderabad",
+          "testedOn": "2026-07-06",
+          "grade": "A+"
+        }
+      },
+      "products": [
+        {
+          "id": "bpt-5204-boiled-aged-10kg",
+          "name": "Aged BPT 5204, Boiled",
+          "categoryId": "rice",
+          "variety": {
+            "name": "BPT 5204",
+            "slug": "bpt-5204"
+          },
+          "riceType": "BOILED",
+          "age": "AGED",
+          "bagSizeKg": 10,
+          "price": 640,
+          "description": "Parboiled and aged: holds its shape, stays separate and keeps well after cooking.",
+          "tags": [
+            "Boiled",
+            "Aged"
+          ],
+          "inStock": true,
+          "featured": true,
+          "batchId": "KS-2026-0705-BP"
+        }
+      ]
+    },
+    "KS-2026-0925-HM": {
+      "passport": {
+        "batchId": "KS-2026-0925-HM",
+        "categoryId": "rice",
+        "variety": {
+          "name": "HMT",
+          "slug": "hmt"
+        },
+        "riceType": "RAW",
+        "age": "NEW",
+        "millingDate": "2026-09-23",
+        "packedDate": "2026-09-25",
+        "bestBefore": "2027-09-25",
+        "quality": {
+          "moisturePct": 13.2,
+          "brokenPct": 2.8,
+          "foreignMatterPct": 0.1,
+          "grainLengthMm": 4.9,
+          "testedBy": "Kisa QC lab, Hyderabad",
+          "testedOn": "2026-09-26",
+          "grade": "A"
+        }
+      },
+      "products": [
+        {
+          "id": "hmt-raw-new-5kg",
+          "name": "HMT, Raw",
+          "categoryId": "rice",
+          "variety": {
+            "name": "HMT",
+            "slug": "hmt"
+          },
+          "riceType": "RAW",
+          "age": "NEW",
+          "bagSizeKg": 5,
+          "price": 355,
+          "description": "Short, soft HMT grains, a Telangana favourite for everyday meals.",
+          "tags": [
+            "Everyday",
+            "New crop"
+          ],
+          "inStock": true,
+          "featured": false,
+          "batchId": "KS-2026-0925-HM"
+        },
+        {
+          "id": "hmt-raw-new-10kg",
+          "name": "HMT, Raw",
+          "categoryId": "rice",
+          "variety": {
+            "name": "HMT",
+            "slug": "hmt"
+          },
+          "riceType": "RAW",
+          "age": "NEW",
+          "bagSizeKg": 10,
+          "price": 685,
+          "description": "Short, soft HMT grains, a Telangana favourite. The monthly bag.",
+          "tags": [
+            "Everyday",
+            "New crop"
+          ],
+          "inStock": true,
+          "featured": true,
+          "batchId": "KS-2026-0925-HM"
+        }
+      ]
+    },
+    "KS-2026-0610-HM": {
+      "passport": {
+        "batchId": "KS-2026-0610-HM",
+        "categoryId": "rice",
+        "variety": {
+          "name": "HMT",
+          "slug": "hmt"
+        },
+        "riceType": "STEAM",
+        "age": "AGED",
+        "millingDate": "2026-06-08",
+        "packedDate": "2026-06-10",
+        "bestBefore": "2027-06-10",
+        "quality": {
+          "moisturePct": 12.1,
+          "brokenPct": 2,
+          "foreignMatterPct": 0.05,
+          "grainLengthMm": 4.9,
+          "testedBy": "Kisa QC lab, Hyderabad",
+          "testedOn": "2026-06-11",
+          "grade": "A+"
+        }
+      },
+      "products": [
+        {
+          "id": "hmt-steam-aged-10kg",
+          "name": "Aged HMT, Steam",
+          "categoryId": "rice",
+          "variety": {
+            "name": "HMT",
+            "slug": "hmt"
+          },
+          "riceType": "STEAM",
+          "age": "AGED",
+          "bagSizeKg": 10,
+          "price": 730,
+          "description": "Steamed and aged HMT: firm, fragrant and fluffy.",
+          "tags": [
+            "Steam",
+            "Aged"
+          ],
+          "inStock": false,
+          "featured": false,
+          "batchId": "KS-2026-0610-HM"
+        }
+      ]
+    }
+  }
+}

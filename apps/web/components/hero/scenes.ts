@@ -231,7 +231,7 @@ export const SCENES: SceneDef[] = [
     },
   },
   {
-    // The camera pushes in on the chute as the farmer's sack slides under it; the rice stream
+    // The camera pushes in on the chute as the Kisa sack slides under it; the rice stream
     // carries on into the sack (canvas), which bulges as the heap rises in its mouth. When it is
     // full the top is folded and stitched, the label slides in and a QR stamp lands.
     id: "pour",

@@ -3,9 +3,21 @@
   "compilerOptions": {
     "target": "ES2017",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "e2e/.results", "playwright-report"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next-verify/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "e2e/.results",
+    "playwright-report"
+  ]
 }

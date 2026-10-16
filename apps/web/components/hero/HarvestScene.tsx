@@ -487,7 +487,7 @@ function SackFront() {
   );
 }
 
-/** Label printed with the farmer's name, as HTML over the bag (positioned by the renderer). */
+/** The bag's Kisa label (variety, weight, batch), as HTML over the bag (positioned by the renderer). */
 export function HarvestLabel({ className = "", ...info }: BagLabelInfo & { className?: string }) {
   // Authored at LABEL_PX px per local unit; the renderer scales it to the bag.
   return (

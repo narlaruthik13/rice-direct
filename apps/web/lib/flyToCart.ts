@@ -1,11 +1,11 @@
-// "Add to cart" flourish: a few produce particles (rice grains, onion bulbs) arc from the clicked
+// "Add to cart" flourish: a few rice grains arc from the clicked
 // button into the navbar cart icon ([data-cart-icon]), which then bumps.
 // Pure DOM + Web Animations API, so no React state or re-renders are involved.
 // Skipped entirely when the user prefers reduced motion.
 
 const DEFAULT_PARTICLE = { shape: "grain" as const, colors: ["#EBCB6E", "#FBF7EE", "#D4A62A", "#FBF7EE"] };
 
-/** `particle` comes from the category config: rice grains, onion bulbs, ... */
+/** `particle` sets the grains' shape and colours (rice grains by default). */
 export function flyGrainsToCart(
   source: HTMLElement,
   count = 6,

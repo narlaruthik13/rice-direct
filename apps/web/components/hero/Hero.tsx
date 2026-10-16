@@ -83,12 +83,12 @@ export function Hero() {
 
           {/* Intro: fades out as the story starts (the story's timeline targets .hero-intro). */}
           <div className="hero-intro absolute inset-x-0 top-[8%] z-[5] px-4 text-center short:top-[4%]">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-husk">Kisa — farmer-owned food</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-husk">Kisa — mill-fresh rice</p>
             <h1 className="mx-auto mt-3 max-w-3xl text-balance text-4xl font-semibold leading-tight text-field-dark sm:text-6xl short:text-3xl">
               From paddy field to your plate
             </h1>
             <p className="mx-auto mt-4 max-w-md text-lg text-soil/85 short:mt-2 short:text-base">
-              Straight from the farmer. Traceable to the field.
+              Mill-fresh rice, honestly priced.
             </p>
             <p className="mx-auto mt-2 max-w-md text-sm text-soil/65 short:hidden">Scroll to watch one season unfold.</p>
             <svg

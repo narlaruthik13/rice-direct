@@ -2,7 +2,7 @@ import { useId } from "react";
 import { BAG, BAG_QR } from "@/components/hero/harvest";
 import { mulberry32 } from "@/lib/random";
 
-// The farmer's jute sack: shared geometry and art for the Pour scene (HarvestScene),
+// The Kisa jute sack: shared geometry and art for the Pour scene (HarvestScene),
 // the Your Home table (HomeScene), the poster frames and the no-JS final frame, plus
 // the printed label as HTML (BagLabel). No GSAP or engine code here, so it is cheap
 // to import from the hero shell.
@@ -73,8 +73,8 @@ export function ClosedSack() {
   );
 }
 
+/** What the hero's bag label shows: Kisa + variety + weight (and the batch id). */
 export interface BagLabelInfo {
-  farmerName: string;
   variety: string;
   weightKg: number;
   batchId: string;
@@ -84,7 +84,7 @@ export interface BagLabelInfo {
  * The bag's printed label, as HTML (no SVG <text>, so it never waits on the web font).
  * Every size is a multiple of --u, one local bag unit, set by whoever places it.
  */
-export function BagLabel({ farmerName, variety, weightKg, batchId, className = "" }: BagLabelInfo & { className?: string }) {
+export function BagLabel({ variety, weightKg, batchId, className = "" }: BagLabelInfo & { className?: string }) {
   const u = (n: number) => `calc(var(--u) * ${n})`;
   return (
     <div
@@ -95,9 +95,6 @@ export function BagLabel({ farmerName, variety, weightKg, batchId, className = "
         KISA
       </p>
       <p className="font-display font-semibold leading-[1.02] text-[#2E2219]" style={{ marginTop: u(2), fontSize: u(8.5) }}>
-        {farmerName}
-      </p>
-      <p className="leading-tight text-[#5A4636]" style={{ marginTop: u(1), fontSize: u(4.5) }}>
         {variety}
       </p>
       <p className="font-extrabold leading-none text-field" style={{ marginTop: u(1), fontSize: u(9.5) }}>
