@@ -54,6 +54,11 @@ Phase 1 and Phase 1.5 are complete and live. Phase 2 moves the project into a mo
 - `apps/api` on Railway or Render.
 - PostgreSQL in the Mumbai region (or the nearest available).
 
+### Databases (Neon)
+- Local development and tests use the Neon **"dev"** branch. Its URLs go in `packages/db/.env` and `apps/api/.env` (both git-ignored).
+- The **"production"** branch is only for the deployed API. Its URLs are set on the hosting platform, never in local files.
+- `DATABASE_URL` is the pooled connection (runtime); `DIRECT_URL` is the direct connection (Prisma Migrate).
+
 ### Phase 2 build steps (one at a time)
 1. Restructure into the monorepo (no visual change)
 2. `packages/db`: schema + seed from current mock data
