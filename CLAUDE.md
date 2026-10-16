@@ -1,18 +1,35 @@
 # Kisa
 
-**Brand line:** Kisa — farmer-owned food
-**Tagline (hero / footer):** Straight from the farmer. Traceable to the field.
+**Brand line:** Kisa — mill-fresh rice (~~Kisa — farmer-owned food~~: superseded)
+**Tagline (hero / footer):** Mill-fresh rice, honestly priced. (~~Straight from the farmer. Traceable to the field.~~: superseded)
 
-## Concept
+## Business model (CURRENT — replaces the farmer / two-model / onion model below)
+Kisa is a **rice-only brand**. Partner mills pack rice in Kisa-branded bags, and Kisa sells directly to customers. "No middlemen" means **mill → Kisa → customer**.
+
+- **Rice only.** No onions or other crops. Partners are **mills only** (no packhouses).
+- **No farmers anywhere.** The farmer concept is removed from the product, the data and the UI (customer website and admin).
+- **Mills are never shown to customers:** not on product pages, labels, trace pages or anywhere public. The admin still records which mill packed each batch, for payouts and quality accountability.
+- **One sales model.** Price = mill price + Kisa margin. Customers see only the total price (no price breakdown).
+- **Product** = variety + type + age + pack size:
+  - variety: an admin-managed list (Sona Masoori, BPT 5204, HMT, ...)
+  - type: RAW, STEAM or BOILED
+  - age: new or aged
+  - pack size: 5, 10 or 25 kg
+- **Public trace page = "Quality Passport":** variety, type, milling date, packed date, best-before date and the quality report. No mill, no farmer.
+- **Hero animation stays.** Only the bag label (Kisa + variety) and the ending line change. Ending line: "From the mill to your plate."
+- **Payouts are per mill, weekly.**
+- Status: the code (Phase 1/1.5 website, Phase 2 steps 2-5) still implements the old model and will be migrated to this one.
+
+## Concept (SUPERSEDED by "Business model (CURRENT)" above)
 A direct food marketplace (rice and onions to start): Farmer → processing partner (rice mill / onion packhouse) → Customer, with no middlemen.
 
-**Business model**
+**Business model (SUPERSEDED)**
 - The platform supports TWO sales models per product:
   - FARMER_OWNED (Model B, toll processing): farmer owns the produce, pays the partner a processing fee, sells directly. Price = farmer share + processing fee + platform fee.
   - PARTNER_SOURCED (Model A): partner buys from the farmer at a published price, processes and sells. Price = price paid to farmer + partner margin + platform fee. The farmer stays visible on product and trace pages.
 - Both models apply to every category.
 
-## Categories
+## Categories (SUPERSEDED: rice only, mills only; see "Business model (CURRENT)")
 - Rice: partner type MILL; steps harvest → milling → packing; attributes: variety, aged/new, broken %, moisture; packs 5/10/25 kg.
 - Onions: partner type PACKHOUSE; steps harvest → curing → grading → packing; attributes: variety (Nashik Red, Bellary, Kurnool), size grade, curing days, shelf life; packs 1/2/5/10 kg; perishable.
 - Categories are config-driven from `lib/categories.ts` so new crops can be added later without changing components.
@@ -32,7 +49,7 @@ Phase 1 and Phase 1.5 are complete and live. Phase 2 moves the project into a mo
 - `apps/admin`: admin panel (Next.js App Router + TypeScript + Tailwind + shadcn/ui + TanStack Table + react-hook-form + zod)
 - `apps/api`: backend (NestJS + Prisma), the single source of truth for all apps, including a future mobile app
 - `packages/db`: Prisma schema, migrations, seed, client
-- `packages/shared`: shared TypeScript types and zod schemas (Product, Batch, Farmer, Partner, Order, OrderStatus, SalesModel, Category)
+- `packages/shared`: shared TypeScript types and zod schemas (Product, Batch, Partner (mill), Order, OrderStatus, ...; ~~Farmer, SalesModel, Category~~ superseded by the rice-only model)
 - `packages/config`: shared Tailwind preset (brand colour tokens), tsconfig base, eslint config
 
 ### Admin design rules
@@ -45,9 +62,9 @@ Phase 1 and Phase 1.5 are complete and live. Phase 2 moves the project into a mo
 - Local delivery in Hyderabad only, with serviceable pincodes and delivery slots.
 - Order status: PLACED → PAID → CONFIRMED → PACKED → OUT_FOR_DELIVERY → DELIVERED, plus CANCELLED and REFUNDED.
 - Stock is tracked per batch in kg and reduced when an order is paid. Overselling must be prevented.
-- Onions are perishable: sell the oldest batch first (FIFO) and hide batches past their shelf life.
+- ~~Onions are perishable: sell the oldest batch first (FIFO) and hide batches past their shelf life.~~ (superseded: no onions; rice batches have a best-before date shown on the Quality Passport)
 - Delivery is confirmed with a customer OTP.
-- Payouts are per order, split by sales model (farmer share / partner fee / platform fee) and settled weekly.
+- ~~Payouts are per order, split by sales model (farmer share / partner fee / platform fee) and settled weekly.~~ (superseded) Payouts are **per mill, weekly**: the mill price of everything sold from that mill's batches.
 
 ### Hosting
 - `apps/web` + `apps/admin` on Vercel.
@@ -75,7 +92,7 @@ Phase 1 and Phase 1.5 are complete and live. Phase 2 moves the project into a mo
 
 ## Later Phases (do NOT build yet)
 - Phase 3: Razorpay integration (server creates order → client Checkout.js → server verifies signature + webhook).
-- Phase 4: Farmer and partner (mill / packhouse) dashboards.
+- Phase 4: Mill dashboards. (~~Farmer and packhouse dashboards~~: superseded.)
 
 ## Tech Stack (apps/web)
 - Next.js 14 (App Router) + TypeScript (strict)
@@ -91,21 +108,21 @@ Phase 1 and Phase 1.5 are complete and live. Phase 2 moves the project into a mo
 - Respect `prefers-reduced-motion` (show static fallbacks).
 
 ## Pages
-1. `/`: animated hero story, featured rice, how it works, farmer stories
-2. `/shop`: filters (variety, price, farm, new or aged)
-3. `/product/[id]`: batch story, farmer + mill info, price breakdown, quality report
+1. `/`: animated hero story, featured rice, how it works, ~~farmer stories~~ (superseded)
+2. `/shop`: filters (variety, type, price, new or aged; ~~farm~~ superseded)
+3. `/product/[id]`: variety, type, age, pack size, total price, quality report (~~batch story, farmer + mill info, price breakdown~~ superseded)
 4. `/cart` and `/checkout` (mock payment)
-5. `/trace/[batchId]`: the page a bag's QR code opens
+5. `/trace/[batchId]`: the **Quality Passport** a bag's QR code opens (variety, type, milling date, packed date, best-before date, quality report; no mill, no farmer)
 6. Order success page and login (UI only)
-7. `/shop/rice` and `/shop/onions`: category shop pages
-8. Home page: a category switcher below the hero
+7. ~~`/shop/rice` and `/shop/onions`: category shop pages~~ (superseded: rice only)
+8. ~~Home page: a category switcher below the hero~~ (superseded: rice only)
 
 ## Hero Animation Story (scroll-synced, in order)
 1. Grow: SVG paddy stalks rise from soil and sway in the wind.
 2. Ripen: green turns to gold, and grain heads bend under their weight.
 3. Spill: paddy grains fall from the heads into a heap (canvas particles).
 4. Mill: husks crack off and golden paddy becomes white rice.
-5. Pour: rice pours into a bag labelled with the farmer's name, then the "Shop Now" CTA appears.
+5. Pour: rice pours into a bag labelled **Kisa + the variety** (~~the farmer's name~~: superseded), then the ending line "From the mill to your plate." and the "Shop Now" CTA appear.
 - Bonus: on "Add to Cart", a few grains fly into the cart icon.
 
 ## Folder Structure
@@ -144,7 +161,7 @@ packages/
 7. Shop, product detail, cart
 8. Checkout UI + trace page
 
-## Phase 1.5 Build Steps (one at a time)
+## Phase 1.5 Build Steps (history; onions, two models and farmer content are SUPERSEDED)
 1. Types + category config + mock data
 2. Generalise components (ProductCard, PriceBreakdown, TraceTimeline, BatchStory)
 3. Model badges, "Sold by" filter, How it works toggle
