@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Logo } from "@kisa/ui/logo";
+import { Logo } from "@kisa/ui/logo-static";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = { title: "Sign in" };

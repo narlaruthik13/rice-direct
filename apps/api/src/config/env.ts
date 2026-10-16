@@ -14,6 +14,8 @@ const EnvSchema = z
     JWT_REFRESH_SECRET: required().pipe(z.string().min(32, "must be at least 32 characters")),
     /** Access token lifetime. Default 15 minutes; tests use a few seconds to exercise refresh. */
     JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(5).max(3600).default(900),
+    /** Login attempts per minute per IP. Default 5; the admin's browser tests raise it. */
+    LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(1000).default(5),
     CORS_ORIGINS: required()
       .transform((v) => v.split(",").map((o) => o.trim()).filter(Boolean))
       .pipe(z.array(z.url("must be a comma-separated list of URLs")).min(1, "needs at least one origin")),

@@ -41,5 +41,5 @@ next-env.d.ts
 dist/
 
 # playwright
-e2e/.results/
+**/e2e/.results/
 playwright-report/

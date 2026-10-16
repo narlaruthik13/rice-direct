@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogOut } from "lucide-react";
 import type { AdminProfile } from "@kisa/shared";
-import { Logo } from "@kisa/ui/logo";
+import { Logo } from "@kisa/ui/logo-static";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "./MobileNav";

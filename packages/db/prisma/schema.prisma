@@ -53,6 +53,21 @@ enum AdminRole {
   STAFF
 }
 
+enum AuditAction {
+  CREATE
+  UPDATE
+  DEACTIVATE
+  REACTIVATE
+  STOCK_ADJUST
+}
+
+enum StockAdjustmentReason {
+  DAMAGED
+  RECOUNT
+  RETURNED
+  OTHER
+}
+
 // ---------- Catalogue ----------
 
 /// Business settings per crop. Display config (theme, copy, filters) stays in apps/web/lib/categories.ts.
@@ -143,11 +158,12 @@ model Batch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  category   Category    @relation(fields: [categoryId], references: [id])
-  farmer     Farmer      @relation(fields: [farmerId], references: [id])
-  partner    Partner     @relation(fields: [partnerId], references: [id])
-  products   Product[]
-  orderItems OrderItem[]
+  category         Category          @relation(fields: [categoryId], references: [id])
+  farmer           Farmer            @relation(fields: [farmerId], references: [id])
+  partner          Partner           @relation(fields: [partnerId], references: [id])
+  products         Product[]
+  orderItems       OrderItem[]
+  stockAdjustments StockAdjustment[]
 
   @@index([categoryId, packedDate]) // FIFO: oldest batch first
   @@index([farmerId])
@@ -334,8 +350,10 @@ model AdminUser {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  orderEvents OrderEvent[]
-  sessions    AdminSession[]
+  orderEvents      OrderEvent[]
+  sessions         AdminSession[]
+  auditLogs        AdminAuditLog[]
+  stockAdjustments StockAdjustment[]
 }
 
 /// One login on one device. Holds a hash of the current refresh token; each refresh
@@ -356,4 +374,40 @@ model AdminSession {
   adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@index([adminUserId])
+}
+
+/// Every admin change: who changed what, and the changed fields as { field: { before, after } }.
+model AdminAuditLog {
+  id          String      @id @default(cuid())
+  adminUserId String
+  /// "Farmer", "Partner", "Batch" or "Product".
+  entity      String
+  entityId    String
+  action      AuditAction
+  changes     Json
+  createdAt   DateTime    @default(now())
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id])
+
+  @@index([entity, entityId, createdAt])
+  @@index([adminUserId])
+}
+
+/// A manual stock correction on a batch (orders reduce stock separately). CHECK deltaKg <> 0.
+model StockAdjustment {
+  id              String                @id @default(cuid())
+  batchId         String
+  adminUserId     String
+  /// Signed: negative removes stock (e.g. damaged), positive adds it (e.g. returned).
+  deltaKg         Int
+  reason          StockAdjustmentReason
+  note            String?
+  availableBefore Int
+  availableAfter  Int
+  createdAt       DateTime              @default(now())
+
+  batch     Batch     @relation(fields: [batchId], references: [id])
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id])
+
+  @@index([batchId, createdAt])
 }

@@ -5,10 +5,16 @@ import { apiUrl } from "./api-url";
 import { refreshTokens } from "./refresh";
 import { ACCESS_COOKIE, REFRESH_COOKIE, setSessionCookies } from "./session";
 
+export interface ApiIssue {
+  path: string;
+  message: string;
+}
+
 export class ApiRequestError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly issues?: ApiIssue[],
   ) {
     super(message);
   }
@@ -63,8 +69,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { message?: string };
-    throw new ApiRequestError(res.status, body.message ?? `Request failed (${res.status})`);
+    const body = (await res.json().catch(() => ({}))) as { message?: string; issues?: ApiIssue[] };
+    throw new ApiRequestError(res.status, body.message ?? `Request failed (${res.status})`, body.issues);
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }

@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    "./logo": "./src/logo.tsx"
+    "./logo": "./src/logo.tsx",
+    "./logo-static": "./src/logo-static.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -1,14 +1,38 @@
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/ComingSoon";
+import Link from "next/link";
+import { Plus } from "lucide-react";
+import type { AdminPartner, Paginated } from "@kisa/shared";
+import { PageHeader } from "@/components/page";
+import { PartnersTable } from "@/components/partners/PartnersTable";
+import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/api";
+import { canEdit, getMe } from "@/lib/me";
+import { type SearchParams, toQuery } from "@/lib/query";
 
 export const metadata: Metadata = { title: "Partners" };
 
-export default function Page() {
+export default async function PartnersPage({ searchParams }: { searchParams: SearchParams }) {
+  const [me, data] = await Promise.all([
+    getMe(),
+    apiFetch<Paginated<AdminPartner>>(`/admin/partners${toQuery(searchParams, ["search", "status", "type", "sort", "order", "page"])}`),
+  ]);
   return (
-    <ComingSoon
-      title="Partners"
-      description="Rice mills and onion packhouses, their processing fees and certifications."
-      step="Phase 2 · Step 5"
-    />
+    <div>
+      <PageHeader
+        title="Partners"
+        description="Rice mills and onion packhouses that process for Kisa."
+        actions={
+          canEdit(me) && (
+            <Button asChild>
+              <Link href="/partners/new">
+                <Plus aria-hidden="true" />
+                New partner
+              </Link>
+            </Button>
+          )
+        }
+      />
+      <PartnersTable data={data} />
+    </div>
   );
 }

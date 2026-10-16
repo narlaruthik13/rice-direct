@@ -5,7 +5,7 @@ import { prisma, TEST_ADMIN_NAME } from "./db";
 const EMAIL = process.env.E2E_ADMIN_EMAIL!;
 const PASSWORD = process.env.E2E_ADMIN_PASSWORD!;
 
-// The API allows 5 logins per minute per IP; these tests use 4.
+// Login is rate limited per IP; the test API allows 30 a minute (see playwright.config.ts).
 test.describe.configure({ mode: "serial" });
 
 test.afterAll(() => prisma.$disconnect());

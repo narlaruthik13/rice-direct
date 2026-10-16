@@ -117,3 +117,109 @@ export interface DashboardSummary {
   /** Perishable batches with stock that stop selling within 7 days. */
   expiringSoon: { count: number; items: DashboardExpiringItem[] };
 }
+
+// ---------- Admin management (step 5) ----------
+
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** A farmer as admins see it: the public shape plus contact, status and counts. */
+export interface AdminFarmer extends Farmer {
+  phone: string | null;
+  photoUrl: string | null;
+  isActive: boolean;
+  batchCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminPartner extends Partner {
+  phone: string | null;
+  isActive: boolean;
+  batchCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StockStatusValue = "in_stock" | "low" | "sold_out";
+
+export interface AdminProduct {
+  id: string;
+  slug: string;
+  name: string;
+  batchId: string;
+  bagSizeKg: number;
+  farmerShare: number;
+  partnerShare: number;
+  platformFee: number;
+  price: number;
+  description: string;
+  tags: string[];
+  featured: boolean;
+  isActive: boolean;
+  /** Packs the batch can still fill at this size. */
+  packsAvailable: number;
+  orderCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminBatchListItem {
+  id: string;
+  categoryId: CategoryId;
+  salesModel: "FARMER_OWNED" | "PARTNER_SOURCED";
+  variety: string;
+  farmer: { id: string; name: string };
+  partner: { id: string; name: string; type: PartnerType };
+  packedDate: string;
+  expiresOn: string | null;
+  /** Days until expiresOn (perishables only). */
+  daysLeft: number | null;
+  outputKg: number;
+  availableKg: number;
+  stockStatus: StockStatusValue;
+  productCount: number;
+}
+
+export interface StockAdjustmentView {
+  id: string;
+  deltaKg: number;
+  reason: "DAMAGED" | "RECOUNT" | "RETURNED" | "OTHER";
+  note: string | null;
+  availableBefore: number;
+  availableAfter: number;
+  admin: { id: string; name: string };
+  createdAt: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  entity: string;
+  entityId: string;
+  action: "CREATE" | "UPDATE" | "DEACTIVATE" | "REACTIVATE" | "STOCK_ADJUST";
+  /** { field: { before, after } } */
+  changes: Record<string, { before: unknown; after: unknown }>;
+  admin: { id: string; name: string };
+  createdAt: string;
+}
+
+export interface AdminBatchDetail extends AdminBatchListItem {
+  harvestDate: string;
+  inputKg: number;
+  purchase: { date: string; pricePerKg: number } | null;
+  shelfLifeDays: number | null;
+  attributes: Record<string, unknown>;
+  quality: Record<string, unknown>;
+  /** True once any order includes this batch: salesModel, farmer, partner and outputKg are then locked. */
+  hasOrders: boolean;
+  lockedFields: string[];
+  products: AdminProduct[];
+  stockAdjustments: StockAdjustmentView[];
+  audit: AuditEntry[];
+  /** Business settings of the batch's category (pack sizes, platform fee). */
+  category: CategorySummary;
+}

@@ -18,6 +18,8 @@ import { type AuthAdmin, clientMeta, toAdminProfile } from "./auth.types";
 import { CurrentAdmin, JwtAuthGuard, Roles, RolesGuard } from "./guards";
 
 const MINUTE = 60_000;
+// Read per request (validated at startup in config/env.ts).
+const loginLimit = () => Number(process.env.LOGIN_RATE_LIMIT_PER_MINUTE ?? 5);
 
 @ApiTags("auth")
 @Controller("auth/admin")
@@ -26,7 +28,7 @@ export class AuthController {
 
   @Post("login")
   @HttpCode(200)
-  @Throttle({ default: { limit: 5, ttl: MINUTE } }) // brute-force protection, per IP
+  @Throttle({ default: { limit: loginLimit, ttl: MINUTE } }) // brute-force protection, per IP
   @ApiOperation({ summary: "Admin login. Returns a 15-minute access token and a 7-day refresh token." })
   @ZodApiBody(AdminLoginSchema)
   @ApiResponse({ status: 401, description: "Invalid email or password" })

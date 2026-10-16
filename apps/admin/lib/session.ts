@@ -29,9 +29,10 @@ export function clearSessionCookies(cookies: CookieWriter) {
 }
 
 /**
- * True while the access token has more than a small margin left: 30 seconds, or a
- * fifth of its lifetime for short-lived tokens. Only decodes the token to read its
- * expiry; the API verifies the signature on every call.
+ * True while the access token has more than a safety margin left: 30 seconds, or half
+ * its lifetime for short-lived tokens. The margin must outlast a page render (several
+ * API calls), because a page that gets a 401 can't save refreshed cookies and has to
+ * end the session. Only decodes the token to read its expiry; the API verifies it.
  */
 export function isAccessTokenFresh(token: string | undefined): boolean {
   if (!token) return false;
@@ -39,7 +40,7 @@ export function isAccessTokenFresh(token: string | undefined): boolean {
     const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
     const exp = Number(payload.exp) * 1000;
     const iat = Number(payload.iat) * 1000;
-    const margin = Math.min(30_000, (exp - iat) / 5);
+    const margin = Math.min(30_000, (exp - iat) / 2);
     return Number.isFinite(exp) && exp - margin > Date.now();
   } catch {
     return false;
