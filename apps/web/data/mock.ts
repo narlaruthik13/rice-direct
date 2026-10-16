@@ -144,7 +144,7 @@ export const partners: Partner[] = [
 
 const riceBatchList: RiceBatch[] = [
   {
-    id: "VD-2026-0412-SM",
+    id: "KS-2026-0412-SM",
     categoryId: "rice",
     salesModel: "FARMER_OWNED",
     farmerId: "farmer-ramana",
@@ -167,7 +167,7 @@ const riceBatchList: RiceBatch[] = [
     },
   },
   {
-    id: "VD-2026-0820-CM",
+    id: "KS-2026-0820-CM",
     categoryId: "rice",
     salesModel: "FARMER_OWNED",
     farmerId: "farmer-ramana",
@@ -190,7 +190,7 @@ const riceBatchList: RiceBatch[] = [
     },
   },
   {
-    id: "VD-2026-0805-TS",
+    id: "KS-2026-0805-TS",
     categoryId: "rice",
     salesModel: "FARMER_OWNED",
     farmerId: "farmer-lakshmi",
@@ -213,7 +213,7 @@ const riceBatchList: RiceBatch[] = [
     },
   },
   {
-    id: "VD-2026-0901-BR",
+    id: "KS-2026-0901-BR",
     categoryId: "rice",
     salesModel: "FARMER_OWNED",
     farmerId: "farmer-lakshmi",
@@ -236,7 +236,7 @@ const riceBatchList: RiceBatch[] = [
     },
   },
   {
-    id: "VD-2026-0315-BP",
+    id: "KS-2026-0315-BP",
     categoryId: "rice",
     salesModel: "FARMER_OWNED",
     farmerId: "farmer-srinivas",
@@ -259,7 +259,7 @@ const riceBatchList: RiceBatch[] = [
     },
   },
   {
-    id: "VD-2026-0220-JS",
+    id: "KS-2026-0220-JS",
     categoryId: "rice",
     salesModel: "FARMER_OWNED",
     farmerId: "farmer-srinivas",
@@ -283,7 +283,7 @@ const riceBatchList: RiceBatch[] = [
   },
   // ----- PARTNER_SOURCED rice: the mill bought this paddy at a published price -----
   {
-    id: "VD-2026-0910-SP",
+    id: "KS-2026-0910-SP",
     categoryId: "rice",
     salesModel: "PARTNER_SOURCED",
     purchase: { date: "2026-04-27", pricePerKg: 34 },
@@ -307,7 +307,7 @@ const riceBatchList: RiceBatch[] = [
     },
   },
   {
-    id: "VD-2026-0618-BA",
+    id: "KS-2026-0618-BA",
     categoryId: "rice",
     salesModel: "PARTNER_SOURCED",
     purchase: { date: "2025-12-16", pricePerKg: 33 },
@@ -331,7 +331,7 @@ const riceBatchList: RiceBatch[] = [
     },
   },
   {
-    id: "VD-2026-0828-TP",
+    id: "KS-2026-0828-TP",
     categoryId: "rice",
     salesModel: "PARTNER_SOURCED",
     purchase: { date: "2026-05-02", pricePerKg: 36 },
@@ -359,7 +359,7 @@ const riceBatchList: RiceBatch[] = [
 const onionBatchList: OnionBatch[] = [
   // ----- FARMER_OWNED onions: the packhouse cures, grades and packs for a fee -----
   {
-    id: "VD-2026-1005-NR",
+    id: "KS-2026-1005-NR",
     categoryId: "onions",
     salesModel: "FARMER_OWNED",
     farmerId: "farmer-shankar",
@@ -385,7 +385,7 @@ const onionBatchList: OnionBatch[] = [
     },
   },
   {
-    id: "VD-2026-1008-BL",
+    id: "KS-2026-1008-BL",
     categoryId: "onions",
     salesModel: "FARMER_OWNED",
     farmerId: "farmer-mallikarjuna",
@@ -411,7 +411,7 @@ const onionBatchList: OnionBatch[] = [
     },
   },
   {
-    id: "VD-2026-1001-KN",
+    id: "KS-2026-1001-KN",
     categoryId: "onions",
     salesModel: "FARMER_OWNED",
     farmerId: "farmer-venkatesh",
@@ -438,7 +438,7 @@ const onionBatchList: OnionBatch[] = [
   },
   // ----- PARTNER_SOURCED onions: the packhouse bought these at a published price -----
   {
-    id: "VD-2026-1003-NS",
+    id: "KS-2026-1003-NS",
     categoryId: "onions",
     salesModel: "PARTNER_SOURCED",
     purchase: { date: "2026-04-14", pricePerKg: 17 },
@@ -465,7 +465,7 @@ const onionBatchList: OnionBatch[] = [
     },
   },
   {
-    id: "VD-2026-1009-BP",
+    id: "KS-2026-1009-BP",
     categoryId: "onions",
     salesModel: "PARTNER_SOURCED",
     purchase: { date: "2026-09-27", pricePerKg: 20 },
@@ -492,7 +492,7 @@ const onionBatchList: OnionBatch[] = [
     },
   },
   {
-    id: "VD-2026-1002-KP",
+    id: "KS-2026-1002-KP",
     categoryId: "onions",
     salesModel: "PARTNER_SOURCED",
     purchase: { date: "2026-09-14", pricePerKg: 19 },
@@ -611,7 +611,7 @@ export const products: Product[] = [
   makeProduct({
     id: "aged-sona-masoori-10kg",
     name: "Aged Sona Masoori",
-    batchId: "VD-2026-0412-SM",
+    batchId: "KS-2026-0412-SM",
     bagSizeKg: 10,
     farmerPricePerKg: 62,
     description:
@@ -622,7 +622,7 @@ export const products: Product[] = [
   makeProduct({
     id: "chittimutyalu-5kg",
     name: "Chittimutyalu",
-    batchId: "VD-2026-0820-CM",
+    batchId: "KS-2026-0820-CM",
     bagSizeKg: 5,
     farmerPricePerKg: 85,
     description:
@@ -633,7 +633,7 @@ export const products: Product[] = [
   makeProduct({
     id: "telangana-sona-10kg",
     name: "Telangana Sona (RNR 15048)",
-    batchId: "VD-2026-0805-TS",
+    batchId: "KS-2026-0805-TS",
     bagSizeKg: 10,
     farmerPricePerKg: 56,
     description:
@@ -644,7 +644,7 @@ export const products: Product[] = [
   makeProduct({
     id: "brown-sona-masoori-5kg",
     name: "Brown Sona Masoori",
-    batchId: "VD-2026-0901-BR",
+    batchId: "KS-2026-0901-BR",
     bagSizeKg: 5,
     farmerPricePerKg: 72,
     description:
@@ -654,7 +654,7 @@ export const products: Product[] = [
   makeProduct({
     id: "aged-bpt-5204-25kg",
     name: "Aged BPT 5204",
-    batchId: "VD-2026-0315-BP",
+    batchId: "KS-2026-0315-BP",
     bagSizeKg: 25,
     farmerPricePerKg: 60,
     description:
@@ -665,7 +665,7 @@ export const products: Product[] = [
   makeProduct({
     id: "jeelakara-sannalu-5kg",
     name: "Aged Jeelakara Sannalu",
-    batchId: "VD-2026-0220-JS",
+    batchId: "KS-2026-0220-JS",
     bagSizeKg: 5,
     farmerPricePerKg: 82,
     description:
@@ -678,7 +678,7 @@ export const products: Product[] = [
   makeProduct({
     id: "sona-masoori-mill-select-25kg",
     name: "Sona Masoori, Mill Select",
-    batchId: "VD-2026-0910-SP",
+    batchId: "KS-2026-0910-SP",
     bagSizeKg: 25,
     partnerMarginPerKg: 7,
     description:
@@ -688,7 +688,7 @@ export const products: Product[] = [
   makeProduct({
     id: "aged-bpt-mill-select-10kg",
     name: "Aged BPT 5204, Mill Select",
-    batchId: "VD-2026-0618-BA",
+    batchId: "KS-2026-0618-BA",
     bagSizeKg: 10,
     partnerMarginPerKg: 8,
     description:
@@ -698,7 +698,7 @@ export const products: Product[] = [
   makeProduct({
     id: "telangana-sona-mill-select-5kg",
     name: "Telangana Sona, Mill Select",
-    batchId: "VD-2026-0828-TP",
+    batchId: "KS-2026-0828-TP",
     bagSizeKg: 5,
     partnerMarginPerKg: 9,
     description:
@@ -710,7 +710,7 @@ export const products: Product[] = [
   makeProduct({
     id: "nashik-red-onions-5kg",
     name: "Nashik Red Onions",
-    batchId: "VD-2026-1005-NR",
+    batchId: "KS-2026-1005-NR",
     bagSizeKg: 5,
     farmerPricePerKg: 28,
     description:
@@ -721,7 +721,7 @@ export const products: Product[] = [
   makeProduct({
     id: "bellary-onions-10kg",
     name: "Bellary Onions",
-    batchId: "VD-2026-1008-BL",
+    batchId: "KS-2026-1008-BL",
     bagSizeKg: 10,
     farmerPricePerKg: 24,
     description:
@@ -732,7 +732,7 @@ export const products: Product[] = [
   makeProduct({
     id: "kurnool-onions-2kg",
     name: "Kurnool Onions",
-    batchId: "VD-2026-1001-KN",
+    batchId: "KS-2026-1001-KN",
     bagSizeKg: 2,
     farmerPricePerKg: 30,
     description:
@@ -744,7 +744,7 @@ export const products: Product[] = [
   makeProduct({
     id: "nashik-red-stored-10kg",
     name: "Nashik Red, Packhouse Stored",
-    batchId: "VD-2026-1003-NS",
+    batchId: "KS-2026-1003-NS",
     bagSizeKg: 10,
     partnerMarginPerKg: 6,
     description:
@@ -754,7 +754,7 @@ export const products: Product[] = [
   makeProduct({
     id: "bellary-large-1kg",
     name: "Bellary Onions, Large",
-    batchId: "VD-2026-1009-BP",
+    batchId: "KS-2026-1009-BP",
     bagSizeKg: 1,
     partnerMarginPerKg: 7,
     description:
@@ -764,7 +764,7 @@ export const products: Product[] = [
   makeProduct({
     id: "kurnool-onions-5kg",
     name: "Kurnool Onions, Packhouse Graded",
-    batchId: "VD-2026-1002-KP",
+    batchId: "KS-2026-1002-KP",
     bagSizeKg: 5,
     partnerMarginPerKg: 6,
     description:

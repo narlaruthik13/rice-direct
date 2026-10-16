@@ -16,7 +16,7 @@ const columns = [
     links: [
       { href: "/#how-it-works", label: "How it works" },
       { href: "/#farmers", label: "Our farmers" },
-      { href: "/trace/VD-2026-0412-SM", label: "Trace a pack" },
+      { href: "/trace/KS-2026-0412-SM", label: "Trace a pack" },
     ],
   },
 ];

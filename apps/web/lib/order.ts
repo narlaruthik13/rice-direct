@@ -35,7 +35,7 @@ export interface OrderSnapshot {
 const KEY = "vari-direct-last-order";
 
 export function makeOrderId() {
-  return `VD-ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+  return `KS-ORD-${Date.now().toString(36).toUpperCase().slice(-6)}`;
 }
 
 export function saveOrder(order: OrderSnapshot) {

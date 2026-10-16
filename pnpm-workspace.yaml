@@ -6,3 +6,9 @@ packages:
 # platform package is missing; the platform package installs normally.
 ignoredBuiltDependencies:
   - unrs-resolver
+
+# Prisma downloads its query engine and generates the client in install scripts.
+onlyBuiltDependencies:
+  - prisma
+  - "@prisma/client"
+  - "@prisma/engines"

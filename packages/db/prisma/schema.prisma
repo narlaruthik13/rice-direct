@@ -1,0 +1,338 @@
+// Kisa database schema (Neon PostgreSQL).
+// DATABASE_URL: pooled connection (PgBouncer), used by the app at runtime.
+// DIRECT_URL:   direct connection, used by Prisma Migrate (migrations need a session, not a pool).
+//
+// Conventions
+// - Money is integer paise (₹62 = 6200). No floats for money; matches Razorpay.
+// - Weights are whole kg (every pack size is whole kg).
+// - CHECK constraints that Prisma cannot express live in the migration SQL:
+//     Batch.availableKg >= 0                     (no overselling)
+//     Product.pricePaise = farmer + partner + platform share
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- Enums ----------
+
+enum SalesModel {
+  FARMER_OWNED // Model B: farmer owns the produce, pays the partner a processing fee
+  PARTNER_SOURCED // Model A: partner buys from the farmer at a published price
+}
+
+enum PartnerType {
+  MILL
+  PACKHOUSE
+}
+
+enum FarmingMethod {
+  CONVENTIONAL
+  LOW_CHEMICAL
+  NATURAL
+}
+
+enum OrderStatus {
+  PLACED
+  PAID
+  CONFIRMED
+  PACKED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum AdminRole {
+  ADMIN
+  STAFF
+}
+
+// ---------- Catalogue ----------
+
+/// Business settings per crop. Display config (theme, copy, filters) stays in apps/web/lib/categories.ts.
+model Category {
+  id                    String      @id // "rice", "onions"; matches CategoryId in @kisa/shared
+  name                  String
+  slug                  String      @unique
+  partnerType           PartnerType
+  perishable            Boolean     @default(false)
+  platformFeePerKgPaise Int
+  packSizesKg           Int[]
+  isActive              Boolean     @default(true)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  batches Batch[]
+}
+
+model Farmer {
+  id           String        @id @default(cuid())
+  name         String
+  phone        String?       @unique
+  village      String
+  district     String
+  state        String
+  acres        Float
+  yearsFarming Int
+  method       FarmingMethod
+  story        String
+  photoUrl     String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  batches Batch[]
+}
+
+/// A processing partner: a rice mill or an onion packhouse.
+model Partner {
+  id                      String      @id @default(cuid())
+  type                    PartnerType
+  name                    String
+  phone                   String?     @unique
+  town                    String
+  district                String
+  state                   String
+  /// FARMER_OWNED: fee charged to the farmer per kg of finished produce.
+  processingFeePerKgPaise Int
+  certifications          String[]
+  established             Int
+  isActive                Boolean     @default(true)
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  batches Batch[]
+}
+
+/// One traceable lot: one farmer's harvest, processed by one partner. Stock lives here.
+model Batch {
+  id          String     @id // printed on the pack + QR → /trace/[batchId], e.g. KS-2026-0412-SM
+  categoryId  String
+  salesModel  SalesModel
+  farmerId    String
+  partnerId   String
+  variety     String
+  harvestDate DateTime   @db.Date
+  packedDate  DateTime   @db.Date
+  /// Raw produce in (paddy, harvested onions), kg.
+  inputKg     Int
+  /// Sellable produce out after processing, kg.
+  outputKg    Int
+  /// Stock left to sell, kg. Reduced when an order is paid. CHECK >= 0.
+  availableKg Int
+
+  /// PARTNER_SOURCED only: when the partner bought the lot, at the published price per raw kg.
+  purchaseDate            DateTime? @db.Date
+  purchasePricePerKgPaise Int?
+
+  /// Perishable crops: days the packed produce keeps, and the date it stops being sold (packedDate + shelfLifeDays).
+  shelfLifeDays Int?
+  expiresOn     DateTime? @db.Date
+
+  /// Crop-specific fields, e.g. rice { millingDate, age }, onions { curingDays, gradingDate, sizeGrade }.
+  attributes Json
+  /// Crop-specific quality report (RiceQuality / OnionQuality in @kisa/shared).
+  quality    Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category   Category    @relation(fields: [categoryId], references: [id])
+  farmer     Farmer      @relation(fields: [farmerId], references: [id])
+  partner    Partner     @relation(fields: [partnerId], references: [id])
+  products   Product[]
+  orderItems OrderItem[]
+
+  @@index([categoryId, packedDate]) // FIFO: oldest batch first
+  @@index([farmerId])
+  @@index([partnerId])
+}
+
+/// A pack of one batch, e.g. 10 kg of KS-2026-0412-SM. Price parts are per pack.
+model Product {
+  id                String   @id @default(cuid())
+  slug              String   @unique // URL: /product/[slug]
+  name              String
+  batchId           String
+  bagSizeKg         Int
+  /// Model-neutral split. FARMER_OWNED: farmer share / processing fee. PARTNER_SOURCED: paid to farmer / partner margin.
+  farmerSharePaise  Int
+  partnerSharePaise Int
+  platformFeePaise  Int
+  /// Always farmer + partner + platform (CHECK constraint).
+  pricePaise        Int
+  description       String
+  tags              String[]
+  featured          Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  batch      Batch       @relation(fields: [batchId], references: [id])
+  orderItems OrderItem[]
+
+  @@index([batchId])
+}
+
+// ---------- Customers and orders ----------
+
+model Customer {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  code       String      @unique // shown to the customer
+  customerId String
+  status     OrderStatus @default(PLACED)
+
+  // Delivery address (snapshot). Hyderabad only: pincode must be serviceable.
+  addressName  String
+  addressPhone String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  pincode      String
+
+  deliveryDate    DateTime @db.Date
+  deliverySlotId  String
+  deliveryAgentId String?
+  /// Customer OTP that confirms delivery (hashed, never stored in plain text).
+  deliveryOtpHash String?
+
+  paymentMethod String
+
+  // Totals (paise): sums of the item splits, plus delivery.
+  farmerTotalPaise   Int
+  partnerTotalPaise  Int
+  platformTotalPaise Int
+  deliveryFeePaise   Int @default(0)
+  totalPaise         Int
+
+  paidAt       DateTime?
+  deliveredAt  DateTime?
+  cancelledAt  DateTime?
+  cancelReason String?
+  createdAt    DateTime  @default(now()) // placed at
+  updatedAt    DateTime  @updatedAt
+
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  deliverySlot  DeliverySlot   @relation(fields: [deliverySlotId], references: [id])
+  deliveryAgent DeliveryAgent? @relation(fields: [deliveryAgentId], references: [id])
+  items         OrderItem[]
+  events        OrderEvent[]
+
+  @@index([status, createdAt])
+  @@index([customerId])
+  @@index([deliveryDate, deliverySlotId])
+}
+
+/// One line of an order. Snapshots price and payees so weekly payouts never depend on today's catalogue.
+model OrderItem {
+  id                String     @id @default(cuid())
+  orderId           String
+  productId         String
+  batchId           String
+  productName       String
+  bagSizeKg         Int
+  quantity          Int
+  salesModel        SalesModel
+  farmerId          String
+  partnerId         String
+  // Per pack, at the time of ordering (paise).
+  unitPricePaise    Int
+  farmerSharePaise  Int
+  partnerSharePaise Int
+  platformFeePaise  Int
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+  batch   Batch   @relation(fields: [batchId], references: [id])
+
+  @@index([orderId])
+  @@index([batchId])
+  @@index([farmerId])
+  @@index([partnerId])
+}
+
+/// Status history: every transition, who made it and why.
+model OrderEvent {
+  id          String       @id @default(cuid())
+  orderId     String
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  note        String?
+  adminUserId String?
+  createdAt   DateTime     @default(now())
+
+  order     Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id])
+
+  @@index([orderId, createdAt])
+}
+
+// ---------- Delivery (Hyderabad only) ----------
+
+model ServiceablePincode {
+  pincode   String   @id
+  area      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// A daily delivery window, e.g. 07:00–10:00. Capacity = max orders per day in this slot.
+model DeliverySlot {
+  id        String   @id @default(cuid())
+  label     String
+  startTime String // "07:00" (Asia/Kolkata)
+  endTime   String // "10:00"
+  capacity  Int
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+}
+
+model DeliveryAgent {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+}
+
+// ---------- Admin ----------
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         AdminRole @default(STAFF)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  orderEvents OrderEvent[]
+}
